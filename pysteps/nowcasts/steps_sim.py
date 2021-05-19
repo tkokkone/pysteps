@@ -435,7 +435,7 @@ def forecast(
 
         # initialize the perturbation generator for the precipitation field
         # TEEMU: lisätty kutsuun p, toimii vain nonparametric_sim initialisoinnille!
-        pp = init_noise(R, fft_method=fft, **noise_kwargs)
+        pp = init_noise(R, p, fft_method=fft, **noise_kwargs)
 
         if noise_stddev_adj == "auto":
             print("Computing noise adjustment coefficients... ", end="", flush=True)
@@ -497,14 +497,14 @@ def forecast(
     # compute lag-l temporal autocorrelation coefficients for each cascade level
     GAMMA = np.empty((n_cascade_levels, ar_order))
     for i in range(n_cascade_levels):
-#        if i == 0:
-#            L_k = max(N,M)
-#        else:
-#            L_k = max(N,M) / 2 / filter["central_wavenumbers"][i]
-#        tau_k = ar_par[0] * L_k ** ar_par[1] #Miten Lk lasketaan?
-#        GAMMA[i,0] = np.exp(-timestep/tau_k)
-#        GAMMA[i,1] = GAMMA[i,0] ** ar_par[2]
-        GAMMA[i, :] = correlation.temporal_autocorrelation(R_c[i], mask=MASK_thr)
+        if i == 0:
+            L_k = max(N,M)
+        else:
+            L_k = max(N,M) / 2 / filter["central_wavenumbers"][i]
+        tau_k = ar_par[0] * L_k ** ar_par[1]
+        GAMMA[i,0] = np.exp(-timestep/tau_k)
+        GAMMA[i,1] = GAMMA[i,0] ** ar_par[2]
+        #GAMMA[i, :] = correlation.temporal_autocorrelation(R_c[i], mask=MASK_thr)
 
     nowcast_utils.print_corrcoefs(GAMMA)
 
