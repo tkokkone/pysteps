@@ -210,6 +210,124 @@ def initialize_param_2d_fft_filter(field, **kwargs):
         "pars": p,
     }
 
+def initialize_param_2d_fft_filter_sim(field, p, **kwargs):
+    """Takes one ore more 2d input fields, fits two spectral slopes, beta1 and beta2,
+    to produce one parametric, global and isotropic fourier filter.
+
+    Parameters
+    ----------
+    field: array-like
+        Two- or three-dimensional array containing one or more input fields.
+        All values are required to be finite. If more than one field are passed,
+        the average fourier filter is returned. It assumes that fields are stacked
+        by the first axis: [nr_fields, y, x].
+
+    Other Parameters
+    ----------------
+    win_fun: {'hann', 'tukey' or None}
+        Optional tapering function to be applied to the input field, generated with
+        :py:func:`pysteps.utils.tapering.compute_window_function`.
+        (default None).
+    model: {'power-law'}
+        The name of the parametric model to be used to fit the power spectrum of
+        the input field (default 'power-law').
+    weighted: bool
+        Whether or not to apply 1/sqrt(power) as weight in the numpy.polyfit()
+        function (default False).
+    rm_rdisc: bool
+        Whether or not to remove the rain/no-rain disconituity (default False).
+        It assumes no-rain pixels are assigned with lowest value.
+    fft_method: str or tuple
+        A string or a (function,kwargs) tuple defining the FFT method to use
+        (see "FFT methods" in :py:func:`pysteps.utils.interface.get_method`).
+        Defaults to "numpy".
+
+    Returns
+    -------
+    out: dict
+        A dictionary containing the keys field, input_shape, model and pars.
+        The first is a two-dimensional array of shape (m, int(n/2)+1) that
+        defines the filter. The second one is the shape of the input field for
+        the filter. The last two are the model and fitted parameters,
+        respectively.
+
+        This dictionary can be passed to
+        :py:func:`pysteps.noise.fftgenerators.generate_noise_2d_fft_filter` to
+        generate noise fields.
+    """
+
+    if len(field.shape) < 2 or len(field.shape) > 3:
+        raise ValueError("the input is not two- or three-dimensional array")
+    if np.any(~np.isfinite(field)):
+        raise ValueError("field contains non-finite values")
+
+    # defaults
+    win_fun = kwargs.get("win_fun", None)
+    model = kwargs.get("model", "power-law")
+    weighted = kwargs.get("weighted", False)
+    rm_rdisc = kwargs.get("rm_rdisc", False)
+    fft = kwargs.get("fft_method", "numpy")
+    if type(fft) == str:
+        fft_shape = field.shape if len(field.shape) == 2 else field.shape[1:]
+        fft = utils.get_method(fft, shape=fft_shape)
+
+    field = field.copy()
+
+    # remove rain/no-rain discontinuity
+    if rm_rdisc:
+        field[field > field.min()] -= field[field > field.min()].min() - field.min()
+
+    # dims
+    if len(field.shape) == 2:
+        field = field[None, :, :]
+    nr_fields = field.shape[0]
+    M, N = field.shape[1:]
+
+    if win_fun is not None:
+        tapering = utils.tapering.compute_window_function(M, N, win_fun)
+
+        # make sure non-rainy pixels are set to zero
+        field -= field.min(axis=(1, 2))[:, None, None]
+    else:
+        tapering = np.ones((M, N))
+
+    if model.lower() == "power-law":
+
+        # create the piecewise function with two spectral slopes beta1 and beta2
+        # and scaling break x0
+        def piecewise_linear(x, x0, y0, beta1, beta2):
+            return np.piecewise(
+                x,
+                [x < x0, x >= x0],
+                [
+                    lambda x: beta1 * x + y0 - beta1 * x0,
+                    lambda x: beta2 * x + y0 - beta2 * x0,
+                ],
+            )
+
+        # TEEMU: p annetaan argumentteina (betat ja scaling break)
+
+        # compute 2d filter
+        YC, XC = utils.arrays.compute_centred_coord_array(M, N)
+        R = np.sqrt(XC * XC + YC * YC)
+        R = fft.fftshift(R)
+        pf = p.copy()
+        pf[2:] = pf[2:] / 2
+        F = np.exp(piecewise_linear(np.log(R), *pf))
+        F[~np.isfinite(F)] = 1
+
+        f = piecewise_linear
+
+    else:
+        raise ValueError("unknown parametric model %s" % model)
+
+    return {
+        "field": F,
+        "input_shape": field.shape[1:],
+        "use_full_fft": True,
+        "model": f,
+        "pars": p,
+    }
 
 def initialize_nonparam_2d_fft_filter(field, **kwargs):
     """Takes one ore more 2d input fields and produces one non-parametric, global

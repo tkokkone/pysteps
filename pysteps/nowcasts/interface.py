@@ -32,7 +32,7 @@ The time step of the output is taken from the inputs.
 """
 
 from pysteps.extrapolation.interface import eulerian_persistence
-from pysteps.nowcasts import anvil, sprog, steps, sseps, extrapolation
+from pysteps.nowcasts import anvil, sprog, steps, sseps, extrapolation, steps_sim
 
 _nowcast_methods = dict()
 _nowcast_methods["anvil"] = anvil.forecast
@@ -42,6 +42,7 @@ _nowcast_methods["lagrangian"] = extrapolation.forecast
 _nowcast_methods["sprog"] = sprog.forecast
 _nowcast_methods["sseps"] = sseps.forecast
 _nowcast_methods["steps"] = steps.forecast
+_nowcast_methods["steps_sim"] = steps_sim.forecast
 
 
 def get_method(name):
