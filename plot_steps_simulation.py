@@ -1,12 +1,4 @@
 #!/bin/env python
-"""
-STEPS nowcast
-=============
-
-This tutorial shows how to compute and plot an ensemble nowcast using Swiss
-radar data.
-
-"""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,16 +6,55 @@ import math
 
 from datetime import datetime
 from pprint import pprint
-from pysteps import io, nowcasts, rcparams
+from pysteps import io, nowcasts, rcparams, noise, utils
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing.ensemblestats import excprob
 from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field
 
-# Set nowcast parameters
-n_ens_members = 20
-n_leadtimes = 6
+# Set simulation parameters
+n_ens_members = 1
+n_timesteps = 3
+time_step = 5 #length of timestep between precipitation fields
 seed = 24
+nx_field = 264 #number of columns in simulated fields
+ny_field = 264 #number of rows in simulated fields
+
+# Set noise parameters
+noise_method="parametric_sim"
+fft_method="numpy" 
+p_pow = np.array([1.0,1.0,1.0,1.0])
+
+# Broken line parameters for field mean
+mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
+sigma2_z = 0.19 #variance of mean areal reflectivity over the simulation period
+h_val_z = 0.94  #structure function exponent
+q_val_z = 0.8  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_z = 80 #time series decorrelation time [min]
+no_bls = 1 #number of broken lines
+var_tol_z = 1 #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_z = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:
+
+# Broken line parameters for velocity magnitude
+mu_vmag = 2.39 #mean of mean areal reflectivity over the simulation period
+sigma2_vmag = 0.14 #variance of mean areal reflectivity over the simulation period
+h_val_vmag = 0.53  #structure function exponent
+q_val_vmag = 0.8  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_vmag = 60 #time series decorrelation time [min]
+no_bls = 1 #number of broken lines
+var_tol_vmag = 1 #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_vmag = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
+
+# Broken line parameters for velocity direction
+mu_vdir = 97 #mean of mean areal reflectivity over the simulation period
+sigma2_vdir = 60 #variance of mean areal reflectivity over the simulation period
+h_val_vdir = 0.41  #structure function exponent
+q_val_vdir = 0.8  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_vdir = 40 #time series decorrelation time [min]
+no_bls = 1 #number of broken lines
+var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
+
 
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
@@ -136,43 +167,49 @@ def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs
     
     return blines_final
 
+# Create the field mean for the requested number of simulation time steps
+r_mean = create_broken_lines(mu_z, sigma2_z, h_val_z, q_val_z,
+                             a_zero_z, time_step, (n_timesteps-1) * time_step,
+                             no_bls, var_tol_z, mar_tol_z)
+
+
+# Create velocity magnitude for the requested number of simulation time steps
+v_mag = create_broken_lines(mu_vmag, sigma2_vmag, h_val_vmag, q_val_vmag, 
+                            a_zero_vmag, time_step, (n_timesteps-1) * time_step,
+                            no_bls, var_tol_vmag, mar_tol_vmag)
+
+# Create velocity direction (deg) for the requested number of simulation time steps
+v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir, 
+                            a_zero_vdir, time_step, (n_timesteps-1) * time_step,
+                            no_bls, var_tol_vdir, mar_tol_vdir)
+
+#Compute advection variables in x- and y-directions
+v_x = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
+v_y = np.sin(v_dir / 360 * 2 * np.pi) * v_mag 
+
+
 ###############################################################################
-# Read precipitation field
-# ------------------------
-#
-# First thing, the sequence of Swiss radar composites is imported, converted and
-# transformed into units of dBR.
+# Create the first precipitation fields, the nuber is determined by the order of
+# the ar process, in this example it is two. Maybe later the second one should
+# be AR(1) of the first one, but is ignored for now
+R = []
+R.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+R.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+# Change the type of R to align with pySTEPS
+R = np.concatenate([R_[None, :, :] for R_ in R])
+
+fft = utils.get_method(fft_method, shape=R.shape[1:], n_threads=1)
+init_noise, generate_noise = noise.get_method(noise_method)
+noise_kwargs=dict()
+pp = init_noise(R, p_pow, fft_method=fft, **noise_kwargs)
+        # initialize the perturbation generator for the precipitation field
+        # TEEMU: lisätty kutsuun p, toimii vain parametric_sim initialisoinnille!
+        
 
 
-date = datetime.strptime("201701311200", "%Y%m%d%H%M")
-data_source = "mch"
-
-# Load data source config
-root_path = rcparams.data_sources[data_source]["root_path"]
-path_fmt = rcparams.data_sources[data_source]["path_fmt"]
-fn_pattern = rcparams.data_sources[data_source]["fn_pattern"]
-fn_ext = rcparams.data_sources[data_source]["fn_ext"]
-importer_name = rcparams.data_sources[data_source]["importer"]
-importer_kwargs = rcparams.data_sources[data_source]["importer_kwargs"]
-timestep = rcparams.data_sources[data_source]["timestep"]
-
-# Find the radar files in the archive
-fns = io.find_by_date(
-    date, root_path, path_fmt, fn_pattern, fn_ext, timestep, num_prev_files=2
-)
-
-# Read the data from the archive
-importer = io.get_method(importer_name, "importer")
-R, _, metadata = io.read_timeseries(fns, importer, **importer_kwargs)
-
-# Convert to rain rate
-R, metadata = conversion.to_rainrate(R, metadata)
-
-# Upscale data to 2 km to limit memory usage
-R, metadata = dimension.aggregate_fields_space(R, metadata, 2000)
 
 # Plot the rainfall field
-plot_precip_field(R[-1, :, :], geodata=metadata)
+plot_precip_field(R[-1, :, :])
 plt.show()
 
 # Log-transform the data to unit of dBR, set the threshold to 0.1 mm/h,
@@ -280,5 +317,6 @@ plot_precip_field(
 plt.show()
 
 # sphinx_gallery_thumbnail_number = 5
+
 
 
