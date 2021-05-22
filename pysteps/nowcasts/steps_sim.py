@@ -24,12 +24,12 @@ from pysteps.nowcasts import utils as nowcast_utils
 from pysteps.postprocessing import probmatching
 from pysteps.timeseries import autoregression, correlation
 
-try:
-    import dask
+#try:
+#    import dask
 
-    DASK_IMPORTED = True
-except ImportError:
-    DASK_IMPORTED = False
+#    DASK_IMPORTED = True
+#except ImportError:
+#    DASK_IMPORTED = False
 
 
 def forecast(
@@ -255,6 +255,8 @@ def forecast(
     ----------
     :cite:`Seed2003`, :cite:`BPS2006`, :cite:`SPN2013`, :cite:`PCH2019b`
     """
+
+    DASK_IMPORTED = False
 
     _check_inputs(R, V, timesteps, ar_order)
 
