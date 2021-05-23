@@ -20,7 +20,7 @@ from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field
 
 # Set nowcast parameters
-n_ens_members = 20
+n_ens_members = 1
 n_leadtimes = 6
 seed = 24
 
