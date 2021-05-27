@@ -439,47 +439,6 @@ def forecast(
     for i in range(R.shape[0]):
         R[i, ~np.isfinite(R[i, :])] = np.nanmin(R[i, :])
 
-    if noise_method is not None:
-        # get methods for perturbations
-        # TEEMU: noise_method täytyy olla 'parametric', mutta parametrit
-        # annetaan, ei estimoida
-        init_noise, generate_noise = noise.get_method(noise_method)
-
-        # initialize the perturbation generator for the precipitation field
-        # TEEMU: lisätty kutsuun p, toimii vain nonparametric_sim initialisoinnille!
-        pp = init_noise(R, p, fft_method=fft, **noise_kwargs)
-
-        if noise_stddev_adj == "auto":
-            print("Computing noise adjustment coefficients... ", end="", flush=True)
-            if measure_time:
-                starttime = time.time()
-
-            R_min = np.min(R)
-            noise_std_coeffs = noise.utils.compute_noise_stddev_adjs(
-                R[-1, :, :],
-                R_thr,
-                R_min,
-                filter,
-                decomp_method,
-                pp,
-                generate_noise,
-                20,
-                conditional=True,
-                num_workers=num_workers,
-            )
-
-            if measure_time:
-                print("%.2f seconds." % (time.time() - starttime))
-            else:
-                print("done.")
-        elif noise_stddev_adj == "fixed":
-            f = lambda k: 1.0 / (0.75 + 0.09 * k)
-            noise_std_coeffs = [f(k) for k in range(1, n_cascade_levels + 1)]
-        else:
-            noise_std_coeffs = np.ones(n_cascade_levels)
-
-        if noise_stddev_adj is not None:
-            print("noise std. dev. coeffs:   %s" % str(noise_std_coeffs))
 
     # compute the cascade decompositions of the input precipitation fields
     R_d = []
