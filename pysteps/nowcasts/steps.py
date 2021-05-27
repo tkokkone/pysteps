@@ -44,7 +44,7 @@ def forecast(
     extrap_method="semilagrangian",
     decomp_method="fft",
     bandpass_filter_method="gaussian",
-    noise_method="nonparametric",
+    noise_method="parametric",
     noise_stddev_adj=None,
     ar_order=2,
     vel_pert_method="bps",

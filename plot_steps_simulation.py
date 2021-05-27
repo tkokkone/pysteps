@@ -19,11 +19,18 @@ time_step = 5 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
 ny_field = 264 #number of rows in simulated fields
+domain = "spatial"
 
 # Set noise parameters
 noise_method="parametric_sim"
-fft_method="numpy" 
-p_pow = np.array([1.0,1.0,1.0,1.0])
+fft_method="numpy"
+#a_beta1 = -1.1
+#b_beta1 = -0.1077
+#c_beta1 = -0.0127
+#a_beta2 = -3.262
+#b_beta2 = -0.02521
+#c_beta2 = -0.07435  
+p_pow = np.array([2.0,0.0,-2.0,-2.0]) #~p0 from fftgenerators.py
 
 # Broken line parameters for field mean
 mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
@@ -192,20 +199,26 @@ v_y = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 # Create the first precipitation fields, the nuber is determined by the order of
 # the ar process, in this example it is two. Maybe later the second one should
 # be AR(1) of the first one, but is ignored for now
-R = []
-R.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
-R.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+R_ini = []
+R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 # Change the type of R to align with pySTEPS
-R = np.concatenate([R_[None, :, :] for R_ in R])
+R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 
-fft = utils.get_method(fft_method, shape=R.shape[1:], n_threads=1)
+fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
-pp = init_noise(R, p_pow, fft_method=fft, **noise_kwargs)
+pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
         # initialize the perturbation generator for the precipitation field
         # TEEMU: lisätty kutsuun p, toimii vain parametric_sim initialisoinnille!
-        
-
+R = []        
+R.append(generate_noise(
+                    pp, randstate=None, fft_method=fft, domain=domain
+                ))        
+R.append(generate_noise(
+                    pp, randstate=None, fft_method=fft, domain=domain
+                ))
+R = np.concatenate([R_[None, :, :] for R_ in R])   
 
 
 # Plot the rainfall field
@@ -214,14 +227,14 @@ plt.show()
 
 # Log-transform the data to unit of dBR, set the threshold to 0.1 mm/h,
 # set the fill value to -15 dBR
-# TEEMU: Missä yksikössä simuloimme?
-R, metadata = transformation.dB_transform(R, metadata, threshold=0.1, zerovalue=-15.0)
+# TEEMU: Missä yksikössä simuloimme? Kun luomme kohinan, niin onko mm vai dbZ?
+#R, metadata = transformation.dB_transform(R, metadata, threshold=0.1, zerovalue=-15.0)
 
 # Set missing values with the fill value
 R[~np.isfinite(R)] = -15.0
 
 # Nicely print the metadata
-pprint(metadata)
+#pprint(metadata)
 
 ###############################################################################
 # Deterministic nowcast with S-PROG
@@ -234,7 +247,7 @@ pprint(metadata)
 # progressively remove the unpredictable spatial scales during the forecast.
 
 # Estimate the motion field
-V = dense_lucaskanade(R)
+#V = dense_lucaskanade(R)
 
 
 ###############################################################################
@@ -257,7 +270,7 @@ R_f = nowcast_method(
     R_thr=-10.0,
     kmperpixel=2.0,
     timestep=timestep,
-    noise_method="parametric",
+    noise_method="parametric_sim",
     vel_pert_method="bps",
     mask_method="incremental",
     seed=seed,
