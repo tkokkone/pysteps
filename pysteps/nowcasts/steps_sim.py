@@ -34,7 +34,10 @@ from pysteps.timeseries import autoregression, correlation
 
 def forecast(
     R,
-    V,
+    r_mean,
+    vx,
+    vy,
+    ar_par,
     timesteps,
     n_ens_members=24,
     n_cascade_levels=6,
@@ -73,10 +76,18 @@ def forecast(
       Array of shape (ar_order+1,m,n) containing the input precipitation fields
       ordered by timestamp from oldest to newest. The time steps between the
       inputs are assumed to be regular.
-    V: array-like
-      Array of shape (2,m,n) containing the x- and y-components of the advection
-      field. The velocities are assumed to represent one time step between the
-      inputs. All values are required to be finite.
+    r_mean: array-like
+      Vector of shape (timesteps,1) containing the timeseries of mean 
+      areal rainfall      
+    vx: array-like
+      Vector of shape (timesteps,1) containing the timeseries of advection 
+      velocity in x direction
+    vy: array-like
+      Vector of shape (timesteps,1) containing the timeseries of advection 
+      velocity in y direction
+    ar_par: array-like
+        Vector of shape (3,1) containing the parameters relating mean area
+        rainfall to temporal autocorrelations
     timesteps: int or list of floats
       Number of time steps to forecast or a list of time steps for which the
       forecasts are computed (relative to the input time step). The elements of
@@ -258,7 +269,7 @@ def forecast(
 
     DASK_IMPORTED = False
 
-    _check_inputs(R, V, timesteps, ar_order)
+    _check_inputs(R, timesteps, ar_order)
 
     if extrap_kwargs is None:
         extrap_kwargs = dict()
@@ -274,9 +285,6 @@ def forecast(
 
     if mask_kwargs is None:
         mask_kwargs = dict()
-
-    if np.any(~np.isfinite(V)):
-        raise ValueError("V contains non-finite values")
 
     if mask_method not in ["obs", "sprog", "incremental", None]:
         raise ValueError(
@@ -308,7 +316,7 @@ def forecast(
         if mask_method == "incremental":
             raise ValueError("mask_method='incremental' but timestep=None")
 
-    print("Computing STEPS nowcast:")
+    print("Computing STEPS simulation:")
     print("------------------------")
     print("")
 
@@ -414,6 +422,8 @@ def forecast(
             -1
         ]
 
+    V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         if not DASK_IMPORTED:
             R[i, :, :] = f(R, i)
@@ -848,18 +858,11 @@ def forecast(
         return None
 
 
-def _check_inputs(R, V, timesteps, ar_order):
+def _check_inputs(R, timesteps, ar_order):
     if R.ndim != 3:
         raise ValueError("R must be a three-dimensional array")
     if R.shape[0] < ar_order + 1:
         raise ValueError("R.shape[0] < ar_order+1")
-    if V.ndim != 3:
-        raise ValueError("V must be a three-dimensional array")
-    if R.shape[1:3] != V.shape[1:3]:
-        raise ValueError(
-            "dimension mismatch between R and V: shape(R)=%s, shape(V)=%s"
-            % (str(R.shape), str(V.shape))
-        )
     if isinstance(timesteps, list) and not sorted(timesteps) == timesteps:
         raise ValueError("timesteps is not in ascending order")
 

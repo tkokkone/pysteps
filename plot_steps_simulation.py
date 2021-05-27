@@ -15,7 +15,7 @@ from pysteps.visualization import plot_precip_field
 # Set simulation parameters
 n_ens_members = 1
 n_timesteps = 3
-time_step = 5 #length of timestep between precipitation fields
+timestep = 5 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
 ny_field = 264 #number of rows in simulated fields
@@ -31,6 +31,7 @@ fft_method="numpy"
 #b_beta2 = -0.02521
 #c_beta2 = -0.07435  
 p_pow = np.array([2.0,0.0,-2.0,-2.0]) #~p0 from fftgenerators.py
+ar_par = np.array([0.90,1.3,1.4])
 
 # Broken line parameters for field mean
 mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
@@ -62,6 +63,7 @@ no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
+    
 
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
@@ -176,23 +178,23 @@ def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs
 
 # Create the field mean for the requested number of simulation time steps
 r_mean = create_broken_lines(mu_z, sigma2_z, h_val_z, q_val_z,
-                             a_zero_z, time_step, (n_timesteps-1) * time_step,
+                             a_zero_z, timestep, (n_timesteps-1) * timestep,
                              no_bls, var_tol_z, mar_tol_z)
 
 
 # Create velocity magnitude for the requested number of simulation time steps
 v_mag = create_broken_lines(mu_vmag, sigma2_vmag, h_val_vmag, q_val_vmag, 
-                            a_zero_vmag, time_step, (n_timesteps-1) * time_step,
+                            a_zero_vmag, timestep, (n_timesteps-1) * timestep,
                             no_bls, var_tol_vmag, mar_tol_vmag)
 
 # Create velocity direction (deg) for the requested number of simulation time steps
 v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir, 
-                            a_zero_vdir, time_step, (n_timesteps-1) * time_step,
+                            a_zero_vdir, timestep, (n_timesteps-1) * timestep,
                             no_bls, var_tol_vdir, mar_tol_vdir)
 
 #Compute advection variables in x- and y-directions
-v_x = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
-v_y = np.sin(v_dir / 360 * 2 * np.pi) * v_mag 
+vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
+vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag 
 
 
 ###############################################################################
@@ -208,13 +210,14 @@ R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
-pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
-        # initialize the perturbation generator for the precipitation field
-        # TEEMU: lisätty kutsuun p, toimii vain parametric_sim initialisoinnille!
+pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
                 ))        
+R.append(generate_noise(
+                    pp, randstate=None, fft_method=fft, domain=domain
+                ))
 R.append(generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
                 ))
@@ -263,8 +266,11 @@ R[~np.isfinite(R)] = -15.0
 nowcast_method = nowcasts.get_method("steps_sim")
 R_f = nowcast_method(
     R[-3:, :, :],
-    V,
-    n_leadtimes,
+    r_mean,
+    vx,
+    vy,
+    ar_par,
+    n_timesteps,
     n_ens_members,
     n_cascade_levels=6,
     R_thr=-10.0,
