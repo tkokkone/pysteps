@@ -39,7 +39,6 @@ def forecast(
     vy,
     ar_par,
     timesteps,
-    n_ens_members=24,
     n_cascade_levels=6,
     R_thr=None,
     kmperpixel=None,
@@ -92,8 +91,6 @@ def forecast(
       Number of time steps to forecast or a list of time steps for which the
       forecasts are computed (relative to the input time step). The elements of
       the list are required to be in ascending order.
-    n_ens_members: int, optional
-      The number of ensemble members to generate.
     n_cascade_levels: int, optional
       The number of cascade levels to use.
     R_thr: float, optional
@@ -371,11 +368,6 @@ def forecast(
     if conditional or mask_method is not None:
         print("precip. intensity threshold: %g" % R_thr)
 
-    num_ensemble_workers = n_ens_members if num_workers > n_ens_members else num_workers
-
-    if measure_time:
-        starttime_init = time.time()
-
     fft = utils.get_method(fft_method, shape=R.shape[1:], n_threads=num_workers)
 
     M, N = R.shape[1:]
@@ -494,41 +486,11 @@ def forecast(
     # TEEMU: Jätetään R_c: viimeiseksi aika-askeleeksi värillinen kohina
     #R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
 
-    # stack the cascades into a list containing all ensemble members
+    # stack the cascades into a list
     R_c = [
-        [R_c[j].copy() for j in range(n_cascade_levels)] for i in range(n_ens_members)
+        [R_c[j].copy() for j in range(n_cascade_levels)]
     ]
 
-    # initialize the random generators
-    # TEEMU: Not needed as noise field is already as the last time-step
-    # if noise_method is not None:
-    #     randgen_prec = []
-    #     randgen_motion = []
-    #     np.random.seed(seed)
-    #     for j in range(n_ens_members):
-    #         rs = np.random.RandomState(seed)
-    #         randgen_prec.append(rs)
-    #         seed = rs.randint(0, high=1e9)
-    #         rs = np.random.RandomState(seed)
-    #         randgen_motion.append(rs)
-    #         seed = rs.randint(0, high=1e9)
-
-    # if vel_pert_method is not None:
-    #     init_vel_noise, generate_vel_noise = noise.get_method(vel_pert_method)
-
-    #     # initialize the perturbation generators for the motion field
-    #     vps = []
-    #     for j in range(n_ens_members):
-    #         kwargs = {
-    #             "randstate": randgen_motion[j],
-    #             "p_par": vp_par,
-    #             "p_perp": vp_perp,
-    #         }
-    #         vp_ = init_vel_noise(V, 1.0 / kmperpixel, timestep, **kwargs)
-    #         vps.append(vp_)
-
-    D = [None for j in range(n_ens_members)]
-    R_f = [[] for j in range(n_ens_members)]
 
     if probmatching_method == "mean":
         mu_0 = np.mean(R[-1, :, :][R[-1, :, :] >= R_thr])
@@ -562,8 +524,7 @@ def forecast(
         R_m = [R_c[0][i].copy() for i in range(n_cascade_levels)]
 
     fft_objs = []
-    for i in range(n_ens_members):
-        fft_objs.append(utils.get_method(fft_method, shape=R.shape[1:]))
+    fft_objs.append(utils.get_method(fft_method, shape=R.shape[1:]))
 
 
     R = R[-1, :, :]

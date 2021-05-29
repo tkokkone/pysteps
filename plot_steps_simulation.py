@@ -13,7 +13,6 @@ from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field
 
 # Set simulation parameters
-n_ens_members = 1
 n_timesteps = 3
 timestep = 5 #length of timestep between precipitation fields
 seed = 24
@@ -271,7 +270,6 @@ R_f = nowcast_method(
     vy,
     ar_par,
     n_timesteps,
-    n_ens_members,
     n_cascade_levels=6,
     R_thr=-10.0,
     kmperpixel=2.0,
