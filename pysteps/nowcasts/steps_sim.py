@@ -430,10 +430,6 @@ def forecast(
         else:
             res.append(dask.delayed(f)(R, i))
 
-    if DASK_IMPORTED:
-        num_workers_ = len(res) if num_workers > len(res) else num_workers
-        R = np.stack(list(dask.compute(*res, num_workers=num_workers_)) + [R[-1, :, :]])
-
     # replace non-finite values with the minimum value
     R = R.copy()
     for i in range(R.shape[0]):
@@ -495,7 +491,8 @@ def forecast(
 
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
-    R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
+    # TEEMU: Jätetään R_c: viimeiseksi aika-askeleeksi värillinen kohina
+    #R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
 
     # stack the cascades into a list containing all ensemble members
     R_c = [
@@ -503,31 +500,32 @@ def forecast(
     ]
 
     # initialize the random generators
-    if noise_method is not None:
-        randgen_prec = []
-        randgen_motion = []
-        np.random.seed(seed)
-        for j in range(n_ens_members):
-            rs = np.random.RandomState(seed)
-            randgen_prec.append(rs)
-            seed = rs.randint(0, high=1e9)
-            rs = np.random.RandomState(seed)
-            randgen_motion.append(rs)
-            seed = rs.randint(0, high=1e9)
+    # TEEMU: Not needed as noise field is already as the last time-step
+    # if noise_method is not None:
+    #     randgen_prec = []
+    #     randgen_motion = []
+    #     np.random.seed(seed)
+    #     for j in range(n_ens_members):
+    #         rs = np.random.RandomState(seed)
+    #         randgen_prec.append(rs)
+    #         seed = rs.randint(0, high=1e9)
+    #         rs = np.random.RandomState(seed)
+    #         randgen_motion.append(rs)
+    #         seed = rs.randint(0, high=1e9)
 
-    if vel_pert_method is not None:
-        init_vel_noise, generate_vel_noise = noise.get_method(vel_pert_method)
+    # if vel_pert_method is not None:
+    #     init_vel_noise, generate_vel_noise = noise.get_method(vel_pert_method)
 
-        # initialize the perturbation generators for the motion field
-        vps = []
-        for j in range(n_ens_members):
-            kwargs = {
-                "randstate": randgen_motion[j],
-                "p_par": vp_par,
-                "p_perp": vp_perp,
-            }
-            vp_ = init_vel_noise(V, 1.0 / kmperpixel, timestep, **kwargs)
-            vps.append(vp_)
+    #     # initialize the perturbation generators for the motion field
+    #     vps = []
+    #     for j in range(n_ens_members):
+    #         kwargs = {
+    #             "randstate": randgen_motion[j],
+    #             "p_par": vp_par,
+    #             "p_perp": vp_perp,
+    #         }
+    #         vp_ = init_vel_noise(V, 1.0 / kmperpixel, timestep, **kwargs)
+    #         vps.append(vp_)
 
     D = [None for j in range(n_ens_members)]
     R_f = [[] for j in range(n_ens_members)]
@@ -567,254 +565,74 @@ def forecast(
     for i in range(n_ens_members):
         fft_objs.append(utils.get_method(fft_method, shape=R.shape[1:]))
 
-    if measure_time:
-        init_time = time.time() - starttime_init
 
     R = R[-1, :, :]
 
     print("Starting nowcast computation.")
-
-    if measure_time:
-        starttime_mainloop = time.time()
-
-    if isinstance(timesteps, int):
-        timesteps = range(timesteps + 1)
-        timestep_type = "int"
-    else:
-        original_timesteps = [0] + list(timesteps)
-        timesteps = nowcast_utils.binned_timesteps(original_timesteps)
-        timestep_type = "list"
 
     extrap_kwargs["return_displacement"] = True
     R_f_prev = [R for i in range(n_ens_members)]
     t_prev = [0.0 for j in range(n_ens_members)]
     t_total = [0.0 for j in range(n_ens_members)]
 
-    # iterate each time step
-    for t, subtimestep_idx in enumerate(timesteps):
-        if timestep_type == "list":
-            subtimesteps = [original_timesteps[t_] for t_ in subtimestep_idx]
-        else:
-            subtimesteps = [t]
 
-        if (timestep_type == "list" and subtimesteps) or (
-            timestep_type == "int" and t > 0
-        ):
-            is_nowcast_time_step = True
-        else:
-            is_nowcast_time_step = False
+    # iterate the AR(p) model for each cascade level
+    for i in range(n_cascade_levels):
+        # apply AR(p) process to cascade level
+        R_c[j][i] = autoregression.iterate_ar_model(
+            R_c[j][i], PHI[i, :], eps=EPS_
+        )
 
-        if is_nowcast_time_step:
-            print(
-                "Computing nowcast for time step %d... " % t,
-                end="",
-                flush=True,
+        EPS = None
+        EPS_ = None
+
+        # compute the recomposed precipitation field(s) from the cascades
+        # obtained from the AR(p) model(s)
+        R_d[j]["cascade_levels"] = [
+            R_c[j][i][-1, :] for i in range(n_cascade_levels)
+        ]
+        if domain == "spatial":
+            R_d[j]["cascade_levels"] = np.stack(R_d[j]["cascade_levels"])
+        R_f_new = recomp_method(R_d[j])
+
+        if domain == "spectral":
+            R_f_new = fft_objs[j].irfft2(R_f_new)
+
+        if mask_method is not None:
+            # apply the precipitation mask to prevent generation of new
+            # precipitation into areas where it was not originally
+            # observed
+            R_cmin = R_f_new.min()
+            if mask_method == "incremental":
+                R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
+                MASK_prec_ = R_f_new > R_cmin
+            else:
+                MASK_prec_ = MASK_prec
+
+            # Set to min value outside of mask
+            R_f_new[~MASK_prec_] = R_cmin
+
+        if probmatching_method == "cdf":
+            # adjust the CDF of the forecast to match the most recently
+            # observed precipitation field
+            R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
+        elif probmatching_method == "mean":
+            MASK = R_f_new >= R_thr
+            mu_fct = np.mean(R_f_new[MASK])
+            R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
+
+        if mask_method == "incremental":
+            MASK_prec[j] = _compute_incremental_mask(
+                R_f_new >= R_thr, struct, mask_rim
             )
 
-        if measure_time:
-            starttime = time.time()
+        R_f_new[domain_mask] = np.nan
 
-        if noise_method is None or mask_method == "sprog":
-            for i in range(n_cascade_levels):
-                # use a separate AR(p) model for the non-perturbed forecast,
-                # from which the mask is obtained
-                R_m[i] = autoregression.iterate_ar_model(R_m[i], PHI[i, :])
+        R_f_out = []
+        extrap_kwargs_ = extrap_kwargs.copy()
 
-            R_m_d["cascade_levels"] = [R_m[i][-1] for i in range(n_cascade_levels)]
-            if domain == "spatial":
-                R_m_d["cascade_levels"] = np.stack(R_m_d["cascade_levels"])
-            R_m_ = recomp_method(R_m_d)
-            if domain == "spectral":
-                R_m_ = fft.irfft2(R_m_)
+        V_pert = V
 
-            if mask_method == "sprog":
-                MASK_prec = _compute_sprog_mask(R_m_, war)
-
-        # the nowcast iteration for each ensemble member
-        def worker(j):
-            if noise_method is not None:
-                # generate noise field
-                EPS = generate_noise(
-                    pp, randstate=randgen_prec[j], fft_method=fft_objs[j], domain=domain
-                )
-
-                # decompose the noise field into a cascade
-                EPS = decomp_method(
-                    EPS,
-                    filter,
-                    fft_method=fft_objs[j],
-                    input_domain=domain,
-                    output_domain=domain,
-                    compute_stats=True,
-                    normalize=True,
-                    compact_output=True,
-                )
-            else:
-                EPS = None
-
-            # iterate the AR(p) model for each cascade level
-            for i in range(n_cascade_levels):
-                # normalize the noise cascade
-                if EPS is not None:
-                    EPS_ = EPS["cascade_levels"][i]
-                    EPS_ *= noise_std_coeffs[i]
-                else:
-                    EPS_ = None
-                # apply AR(p) process to cascade level
-                if EPS is not None or vel_pert_method is not None:
-                    R_c[j][i] = autoregression.iterate_ar_model(
-                        R_c[j][i], PHI[i, :], eps=EPS_
-                    )
-                else:
-                    # use the deterministic AR(p) model computed above if
-                    # perturbations are disabled
-                    R_c[j][i] = R_m[i]
-
-            EPS = None
-            EPS_ = None
-
-            # compute the recomposed precipitation field(s) from the cascades
-            # obtained from the AR(p) model(s)
-            R_d[j]["cascade_levels"] = [
-                R_c[j][i][-1, :] for i in range(n_cascade_levels)
-            ]
-            if domain == "spatial":
-                R_d[j]["cascade_levels"] = np.stack(R_d[j]["cascade_levels"])
-            R_f_new = recomp_method(R_d[j])
-
-            if domain == "spectral":
-                R_f_new = fft_objs[j].irfft2(R_f_new)
-
-            if mask_method is not None:
-                # apply the precipitation mask to prevent generation of new
-                # precipitation into areas where it was not originally
-                # observed
-                R_cmin = R_f_new.min()
-                if mask_method == "incremental":
-                    R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
-                    MASK_prec_ = R_f_new > R_cmin
-                else:
-                    MASK_prec_ = MASK_prec
-
-                # Set to min value outside of mask
-                R_f_new[~MASK_prec_] = R_cmin
-
-            if probmatching_method == "cdf":
-                # adjust the CDF of the forecast to match the most recently
-                # observed precipitation field
-                R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
-            elif probmatching_method == "mean":
-                MASK = R_f_new >= R_thr
-                mu_fct = np.mean(R_f_new[MASK])
-                R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
-
-            if mask_method == "incremental":
-                MASK_prec[j] = _compute_incremental_mask(
-                    R_f_new >= R_thr, struct, mask_rim
-                )
-
-            R_f_new[domain_mask] = np.nan
-
-            R_f_out = []
-            extrap_kwargs_ = extrap_kwargs.copy()
-
-            V_pert = V
-
-            # advect the recomposed precipitation field to obtain the forecast for
-            # the current time step (or subtimesteps if non-integer time steps are
-            # given)
-            for t_sub in subtimesteps:
-                if t_sub > 0:
-                    t_diff_prev_int = t_sub - int(t_sub)
-                    if t_diff_prev_int > 0.0:
-                        R_f_ip = (1.0 - t_diff_prev_int) * R_f_prev[
-                            j
-                        ] + t_diff_prev_int * R_f_new
-                    else:
-                        R_f_ip = R_f_prev[j]
-
-                    t_diff_prev = t_sub - t_prev[j]
-                    t_total[j] += t_diff_prev
-
-                    # compute the perturbed motion field
-                    if vel_pert_method is not None:
-                        V_pert = V + generate_vel_noise(vps[j], t_total[j] * timestep)
-
-                    extrap_kwargs_["displacement_prev"] = D[j]
-                    R_f_ep, D[j] = extrapolator_method(
-                        R_f_ip,
-                        V_pert,
-                        [t_diff_prev],
-                        **extrap_kwargs_,
-                    )
-                    R_f_out.append(R_f_ep[0])
-                    t_prev[j] = t_sub
-
-            # advect the forecast field by one time step if no subtimesteps in the
-            # current interval were found
-            if not subtimesteps:
-                t_diff_prev = t + 1 - t_prev[j]
-                t_total[j] += t_diff_prev
-
-                # compute the perturbed motion field
-                if vel_pert_method is not None:
-                    V_pert = V + generate_vel_noise(vps[j], t_total[j] * timestep)
-
-                extrap_kwargs_["displacement_prev"] = D[j]
-                _, D[j] = extrapolator_method(
-                    None,
-                    V_pert,
-                    [t_diff_prev],
-                    **extrap_kwargs_,
-                )
-                t_prev[j] = t + 1
-
-            R_f_prev[j] = R_f_new
-
-            return R_f_out
-
-        res = []
-        for j in range(n_ens_members):
-            if not DASK_IMPORTED or n_ens_members == 1:
-                res.append(worker(j))
-            else:
-                res.append(dask.delayed(worker)(j))
-
-        R_f_ = (
-            dask.compute(*res, num_workers=num_ensemble_workers)
-            if DASK_IMPORTED and n_ens_members > 1
-            else res
-        )
-        res = None
-
-        if is_nowcast_time_step:
-            if measure_time:
-                print("%.2f seconds." % (time.time() - starttime))
-            else:
-                print("done.")
-
-        if callback is not None:
-            R_f_stacked = np.stack(R_f_)
-            if R_f_stacked.shape[1] > 0:
-                callback(R_f_stacked.squeeze())
-
-        if return_output:
-            for j in range(n_ens_members):
-                R_f[j].extend(R_f_[j])
-
-        R_f_ = None
-
-    if measure_time:
-        mainloop_time = time.time() - starttime_mainloop
-
-    if return_output:
-        outarr = np.stack([np.stack(R_f[j]) for j in range(n_ens_members)])
-        if measure_time:
-            return outarr, init_time, mainloop_time
-        else:
-            return outarr
-    else:
-        return None
 
 
 def _check_inputs(R, timesteps, ar_order):
