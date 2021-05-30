@@ -269,7 +269,6 @@ R_f = nowcast_method(
     vx,
     vy,
     ar_par,
-    n_timesteps,
     n_cascade_levels=6,
     R_thr=-10.0,
     kmperpixel=2.0,

@@ -14,7 +14,6 @@ Implementation of the STEPS stochastic nowcasting method as described in
 
 import numpy as np
 import scipy.ndimage
-import time
 
 from pysteps import cascade
 from pysteps import extrapolation
@@ -24,13 +23,6 @@ from pysteps.nowcasts import utils as nowcast_utils
 from pysteps.postprocessing import probmatching
 from pysteps.timeseries import autoregression, correlation
 
-#try:
-#    import dask
-
-#    DASK_IMPORTED = True
-#except ImportError:
-#    DASK_IMPORTED = False
-
 
 def forecast(
     R,
@@ -38,7 +30,6 @@ def forecast(
     vx,
     vy,
     ar_par,
-    timesteps,
     n_cascade_levels=6,
     R_thr=None,
     kmperpixel=None,
@@ -66,8 +57,7 @@ def forecast(
     mask_kwargs=None,
     measure_time=False,
 ):
-    """Generate a nowcast ensemble by using the Short-Term Ensemble Prediction
-    System (STEPS) method.
+    """Generate a single simulation member with suppplide STEPS parameters
 
     Parameters
     ----------
@@ -87,10 +77,6 @@ def forecast(
     ar_par: array-like
         Vector of shape (3,1) containing the parameters relating mean area
         rainfall to temporal autocorrelations
-    timesteps: int or list of floats
-      Number of time steps to forecast or a list of time steps for which the
-      forecasts are computed (relative to the input time step). The elements of
-      the list are required to be in ascending order.
     n_cascade_levels: int, optional
       The number of cascade levels to use.
     R_thr: float, optional
@@ -181,57 +167,7 @@ def forecast(
     noise_kwargs: dict, optional
       Optional dictionary containing keyword arguments for the initializer of
       the noise generator. See the documentation of pysteps.noise.fftgenerators.
-    vel_pert_kwargs: dict, optional
-      Optional dictionary containing keyword arguments 'p_par' and 'p_perp' for
-      the initializer of the velocity perturbator. The choice of the optimal
-      parameters depends on the domain and the used optical flow method.
 
-      Default parameters from :cite:`BPS2006`:
-      p_par  = [10.88, 0.23, -7.68]
-      p_perp = [5.76, 0.31, -2.72]
-
-      Parameters fitted to the data (optical flow/domain):
-
-      darts/fmi:
-      p_par  = [13.71259667, 0.15658963, -16.24368207]
-      p_perp = [8.26550355, 0.17820458, -9.54107834]
-
-      darts/mch:
-      p_par  = [24.27562298, 0.11297186, -27.30087471]
-      p_perp = [-7.80797846e+01, -3.38641048e-02, 7.56715304e+01]
-
-      darts/fmi+mch:
-      p_par  = [16.55447057, 0.14160448, -19.24613059]
-      p_perp = [14.75343395, 0.11785398, -16.26151612]
-
-      lucaskanade/fmi:
-      p_par  = [2.20837526, 0.33887032, -2.48995355]
-      p_perp = [2.21722634, 0.32359621, -2.57402761]
-
-      lucaskanade/mch:
-      p_par  = [2.56338484, 0.3330941, -2.99714349]
-      p_perp = [1.31204508, 0.3578426, -1.02499891]
-
-      lucaskanade/fmi+mch:
-      p_par  = [2.31970635, 0.33734287, -2.64972861]
-      p_perp = [1.90769947, 0.33446594, -2.06603662]
-
-      vet/fmi:
-      p_par  = [0.25337388, 0.67542291, 11.04895538]
-      p_perp = [0.02432118, 0.99613295, 7.40146505]
-
-      vet/mch:
-      p_par  = [0.5075159, 0.53895212, 7.90331791]
-      p_perp = [0.68025501, 0.41761289, 4.73793581]
-
-      vet/fmi+mch:
-      p_par  = [0.29495222, 0.62429207, 8.6804131 ]
-      p_perp = [0.23127377, 0.59010281, 5.98180004]
-
-      fmi=Finland, mch=Switzerland, fmi+mch=both pooled into the same data set
-
-      The above parameters have been fitten by using run_vel_pert_analysis.py
-      and fit_vel_pert_params.py located in the scripts directory.
 
       See pysteps.noise.motion for additional documentation.
     mask_kwargs: dict
@@ -266,7 +202,7 @@ def forecast(
 
     DASK_IMPORTED = False
 
-    _check_inputs(R, timesteps, ar_order)
+    _check_inputs(R, ar_order)
 
     if extrap_kwargs is None:
         extrap_kwargs = dict()
@@ -343,11 +279,6 @@ def forecast(
 
     print("Parameters:")
     print("-----------")
-    if isinstance(timesteps, int):
-        print("number of time steps:     %d" % timesteps)
-    else:
-        print("time steps:               %s" % timesteps)
-    print("parallel threads:         %d" % num_workers)
     print("number of cascade levels: %d" % n_cascade_levels)
     print("order of the AR(p) model: %d" % ar_order)
     if vel_pert_method == "bps":
@@ -416,10 +347,7 @@ def forecast(
     V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
-        if not DASK_IMPORTED:
-            R[i, :, :] = f(R, i)
-        else:
-            res.append(dask.delayed(f)(R, i))
+        R[i, :, :] = f(R, i)
 
     # replace non-finite values with the minimum value
     R = R.copy()
@@ -447,7 +375,6 @@ def forecast(
     R_c = nowcast_utils.stack_cascades(R_d, n_cascade_levels)
 
     R_d = R_d[-1]
-    #R_d = [R_d.copy() for j in range(n_ens_members)]
 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
@@ -480,22 +407,15 @@ def forecast(
 
     nowcast_utils.print_ar_params(PHI)
 
+    # TEEMU: copy the last element in R_c to EPS
+    EPS = [R_c[i][-1].copy() for j in range(n_cascade_levels)]
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
-    # TEEMU: Jätetään R_c: viimeiseksi aika-askeleeksi värillinen kohina
-    EPS = [R_c[i][-1].copy() for j in range(n_cascade_levels)]
     R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
-
-    # stack the cascades into a list
-    #R_c = [
-        #[R_c[j].copy() for j in range(n_cascade_levels)]
-    #]
 
 
     if probmatching_method == "mean":
         mu_0 = np.mean(R[-1, :, :][R[-1, :, :] >= R_thr])
-
-    R_m = None
 
     if mask_method is not None:
         MASK_prec = R[-1, :, :] >= R_thr
@@ -520,9 +440,6 @@ def forecast(
             MASK_prec = _compute_incremental_mask(MASK_prec, struct, mask_rim)
             #MASK_prec = [MASK_prec.copy() for j in range(n_ens_members)]
 
-    if noise_method is None and R_m is None:
-        R_m = [R_c[0][i].copy() for i in range(n_cascade_levels)]
-
     fft_objs = []
     fft_objs.append(utils.get_method(fft_method, shape=R.shape[1:]))
 
@@ -546,66 +463,67 @@ def forecast(
             R_c[i], PHI[i, :], eps=EPS_
         )
 
-        # EPS = None
-        # EPS_ = None
+    #Tuskin tarvitaan näitä kahta riviä...
+    EPS = None
+    EPS_ = None
 
-        # # compute the recomposed precipitation field(s) from the cascades
-        # # obtained from the AR(p) model(s)
-        # R_d[j]["cascade_levels"] = [
-        #     R_c[j][i][-1, :] for i in range(n_cascade_levels)
-        # ]
-        # if domain == "spatial":
-        #     R_d[j]["cascade_levels"] = np.stack(R_d[j]["cascade_levels"])
-        # R_f_new = recomp_method(R_d[j])
+    # compute the recomposed precipitation field(s) from the cascades
+    # obtained from the AR(p) model(s)
+    R_d["cascade_levels"] = [
+        R_c[i][-1, :] for i in range(n_cascade_levels)
+    ]
+    if domain == "spatial":
+        R_d["cascade_levels"] = np.stack(R_d["cascade_levels"])
+    R_f_new = recomp_method(R_d)
 
-        # if domain == "spectral":
-        #     R_f_new = fft_objs[j].irfft2(R_f_new)
+    #Tästä hommaudutaan eroon, kun tässä ei tehdä ensebmblea
+    #viitataan suoraan listan ekaan jäseneen fft_objs[0], jos tää
+    #oikeesti tarvitaan, niin yllä ei tarvinne muodostaa listaa.
+    if domain == "spectral":
+        R_f_new = fft_objs[0].irfft2(R_f_new)
 
-        # if mask_method is not None:
-        #     # apply the precipitation mask to prevent generation of new
-        #     # precipitation into areas where it was not originally
-        #     # observed
-        #     R_cmin = R_f_new.min()
-        #     if mask_method == "incremental":
-        #         R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
-        #         MASK_prec_ = R_f_new > R_cmin
-        #     else:
-        #         MASK_prec_ = MASK_prec
+    if mask_method is not None:
+        # apply the precipitation mask to prevent generation of new
+        # precipitation into areas where it was not originally
+        # observed
+        R_cmin = R_f_new.min()
+        if mask_method == "incremental":
+            R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
+            MASK_prec_ = R_f_new > R_cmin
+        else:
+            MASK_prec_ = MASK_prec
 
-        #     # Set to min value outside of mask
-        #     R_f_new[~MASK_prec_] = R_cmin
+        # Set to min value outside of mask
+        R_f_new[~MASK_prec_] = R_cmin
 
-        # if probmatching_method == "cdf":
-        #     # adjust the CDF of the forecast to match the most recently
-        #     # observed precipitation field
-        #     R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
-        # elif probmatching_method == "mean":
-        #     MASK = R_f_new >= R_thr
-        #     mu_fct = np.mean(R_f_new[MASK])
-        #     R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
+    if probmatching_method == "cdf":
+        # adjust the CDF of the forecast to match the most recently
+        # observed precipitation field
+        R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
+    elif probmatching_method == "mean":
+        MASK = R_f_new >= R_thr
+        mu_fct = np.mean(R_f_new[MASK])
+        R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
 
-        # if mask_method == "incremental":
-        #     MASK_prec[j] = _compute_incremental_mask(
-        #         R_f_new >= R_thr, struct, mask_rim
-        #     )
+    if mask_method == "incremental":
+        MASK_prec = _compute_incremental_mask(
+            R_f_new >= R_thr, struct, mask_rim
+        )
 
-        # R_f_new[domain_mask] = np.nan
+    R_f_new[domain_mask] = np.nan
 
-        # R_f_out = []
-        # extrap_kwargs_ = extrap_kwargs.copy()
+    R_f_out = []
+    extrap_kwargs_ = extrap_kwargs.copy()
 
-        # V_pert = V
+    V_pert = V
 
 
 
-def _check_inputs(R, timesteps, ar_order):
+def _check_inputs(R, ar_order):
     if R.ndim != 3:
         raise ValueError("R must be a three-dimensional array")
     if R.shape[0] < ar_order + 1:
         raise ValueError("R.shape[0] < ar_order+1")
-    if isinstance(timesteps, list) and not sorted(timesteps) == timesteps:
-        raise ValueError("timesteps is not in ascending order")
-
 
 def _compute_incremental_mask(Rbin, kr, r):
     # buffer the observation mask Rbin using the kernel kr
