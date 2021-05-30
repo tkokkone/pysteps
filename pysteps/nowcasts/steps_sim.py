@@ -347,7 +347,6 @@ def forecast(
         print("number of time steps:     %d" % timesteps)
     else:
         print("time steps:               %s" % timesteps)
-    print("ensemble size:            %d" % n_ens_members)
     print("parallel threads:         %d" % num_workers)
     print("number of cascade levels: %d" % n_cascade_levels)
     print("order of the AR(p) model: %d" % ar_order)
@@ -448,7 +447,7 @@ def forecast(
     R_c = nowcast_utils.stack_cascades(R_d, n_cascade_levels)
 
     R_d = R_d[-1]
-    R_d = [R_d.copy() for j in range(n_ens_members)]
+    #R_d = [R_d.copy() for j in range(n_ens_members)]
 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
@@ -484,12 +483,13 @@ def forecast(
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
     # TEEMU: Jätetään R_c: viimeiseksi aika-askeleeksi värillinen kohina
-    #R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
+    EPS = [R_c[i][-1].copy() for j in range(n_cascade_levels)]
+    R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
 
     # stack the cascades into a list
-    R_c = [
-        [R_c[j].copy() for j in range(n_cascade_levels)]
-    ]
+    #R_c = [
+        #[R_c[j].copy() for j in range(n_cascade_levels)]
+    #]
 
 
     if probmatching_method == "mean":
@@ -518,7 +518,7 @@ def forecast(
             struct = scipy.ndimage.iterate_structure(struct, int((n - 1) / 2.0))
             # initialize precip mask for each member
             MASK_prec = _compute_incremental_mask(MASK_prec, struct, mask_rim)
-            MASK_prec = [MASK_prec.copy() for j in range(n_ens_members)]
+            #MASK_prec = [MASK_prec.copy() for j in range(n_ens_members)]
 
     if noise_method is None and R_m is None:
         R_m = [R_c[0][i].copy() for i in range(n_cascade_levels)]
@@ -532,67 +532,69 @@ def forecast(
     print("Starting nowcast computation.")
 
     extrap_kwargs["return_displacement"] = True
-    R_f_prev = [R for i in range(n_ens_members)]
-    t_prev = [0.0 for j in range(n_ens_members)]
-    t_total = [0.0 for j in range(n_ens_members)]
+    #R_f_prev = [R for i in range(n_ens_members)]
+    #t_prev = [0.0 for j in range(n_ens_members)]
+    #t_total = [0.0 for j in range(n_ens_members)]
 
 
     # iterate the AR(p) model for each cascade level
     for i in range(n_cascade_levels):
         # apply AR(p) process to cascade level
-        R_c[j][i] = autoregression.iterate_ar_model(
-            R_c[j][i], PHI[i, :], eps=EPS_
+        EPS_ = EPS[i]
+        #EPS_ *= noise_std_coeffs[i]
+        R_c[i] = autoregression.iterate_ar_model(
+            R_c[i], PHI[i, :], eps=EPS_
         )
 
-        EPS = None
-        EPS_ = None
+        # EPS = None
+        # EPS_ = None
 
-        # compute the recomposed precipitation field(s) from the cascades
-        # obtained from the AR(p) model(s)
-        R_d[j]["cascade_levels"] = [
-            R_c[j][i][-1, :] for i in range(n_cascade_levels)
-        ]
-        if domain == "spatial":
-            R_d[j]["cascade_levels"] = np.stack(R_d[j]["cascade_levels"])
-        R_f_new = recomp_method(R_d[j])
+        # # compute the recomposed precipitation field(s) from the cascades
+        # # obtained from the AR(p) model(s)
+        # R_d[j]["cascade_levels"] = [
+        #     R_c[j][i][-1, :] for i in range(n_cascade_levels)
+        # ]
+        # if domain == "spatial":
+        #     R_d[j]["cascade_levels"] = np.stack(R_d[j]["cascade_levels"])
+        # R_f_new = recomp_method(R_d[j])
 
-        if domain == "spectral":
-            R_f_new = fft_objs[j].irfft2(R_f_new)
+        # if domain == "spectral":
+        #     R_f_new = fft_objs[j].irfft2(R_f_new)
 
-        if mask_method is not None:
-            # apply the precipitation mask to prevent generation of new
-            # precipitation into areas where it was not originally
-            # observed
-            R_cmin = R_f_new.min()
-            if mask_method == "incremental":
-                R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
-                MASK_prec_ = R_f_new > R_cmin
-            else:
-                MASK_prec_ = MASK_prec
+        # if mask_method is not None:
+        #     # apply the precipitation mask to prevent generation of new
+        #     # precipitation into areas where it was not originally
+        #     # observed
+        #     R_cmin = R_f_new.min()
+        #     if mask_method == "incremental":
+        #         R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
+        #         MASK_prec_ = R_f_new > R_cmin
+        #     else:
+        #         MASK_prec_ = MASK_prec
 
-            # Set to min value outside of mask
-            R_f_new[~MASK_prec_] = R_cmin
+        #     # Set to min value outside of mask
+        #     R_f_new[~MASK_prec_] = R_cmin
 
-        if probmatching_method == "cdf":
-            # adjust the CDF of the forecast to match the most recently
-            # observed precipitation field
-            R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
-        elif probmatching_method == "mean":
-            MASK = R_f_new >= R_thr
-            mu_fct = np.mean(R_f_new[MASK])
-            R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
+        # if probmatching_method == "cdf":
+        #     # adjust the CDF of the forecast to match the most recently
+        #     # observed precipitation field
+        #     R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
+        # elif probmatching_method == "mean":
+        #     MASK = R_f_new >= R_thr
+        #     mu_fct = np.mean(R_f_new[MASK])
+        #     R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
 
-        if mask_method == "incremental":
-            MASK_prec[j] = _compute_incremental_mask(
-                R_f_new >= R_thr, struct, mask_rim
-            )
+        # if mask_method == "incremental":
+        #     MASK_prec[j] = _compute_incremental_mask(
+        #         R_f_new >= R_thr, struct, mask_rim
+        #     )
 
-        R_f_new[domain_mask] = np.nan
+        # R_f_new[domain_mask] = np.nan
 
-        R_f_out = []
-        extrap_kwargs_ = extrap_kwargs.copy()
+        # R_f_out = []
+        # extrap_kwargs_ = extrap_kwargs.copy()
 
-        V_pert = V
+        # V_pert = V
 
 
 
