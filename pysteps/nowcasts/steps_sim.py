@@ -231,11 +231,6 @@ def forecast(
     if mask_method is not None and R_thr is None:
         raise ValueError("mask_method!=None but R_thr=None")
 
-    if noise_stddev_adj not in ["auto", "fixed", None]:
-        raise ValueError(
-            "unknown noise_std_dev_adj method %s: must be 'auto', 'fixed', or None"
-            % noise_stddev_adj
-        )
 
     if kmperpixel is None:
         if vel_pert_method is not None:
@@ -281,24 +276,10 @@ def forecast(
     print("-----------")
     print("number of cascade levels: %d" % n_cascade_levels)
     print("order of the AR(p) model: %d" % ar_order)
-    if vel_pert_method == "bps":
-        vp_par = vel_pert_kwargs.get("p_par", noise.motion.get_default_params_bps_par())
-        vp_perp = vel_pert_kwargs.get(
-            "p_perp", noise.motion.get_default_params_bps_perp()
-        )
-        print(
-            "velocity perturbations, parallel:      %g,%g,%g"
-            % (vp_par[0], vp_par[1], vp_par[2])
-        )
-        print(
-            "velocity perturbations, perpendicular: %g,%g,%g"
-            % (vp_perp[0], vp_perp[1], vp_perp[2])
-        )
 
     if conditional or mask_method is not None:
         print("precip. intensity threshold: %g" % R_thr)
 
-    fft = utils.get_method(fft_method, shape=R.shape[1:], n_threads=num_workers)
 
     M, N = R.shape[1:]
 
@@ -309,6 +290,8 @@ def forecast(
     decomp_method, recomp_method = cascade.get_method(decomp_method)
 
     extrapolator_method = extrapolation.get_method(extrap_method)
+    
+    fft = utils.get_method(fft_method, shape=R.shape[1:], n_threads=num_workers)
 
     x_values, y_values = np.meshgrid(np.arange(R.shape[2]), np.arange(R.shape[1]))
 
@@ -317,7 +300,7 @@ def forecast(
     #TEEMU: EN ymmärrä, miksi tämä. Ymmärtääkseni tekee identtisen kopion, jos
     #valmiiksi ar_order+1 kenttää. Ilmeiesesti siltä varalta, että niitä olisi
     #enemmän.
-    R = R[-(ar_order + 1) :, :, :].copy()
+    #R = R[-(ar_order + 1) :, :, :].copy()
 
     # determine the domain mask from non-finite values
     domain_mask = np.logical_or.reduce(
@@ -374,6 +357,7 @@ def forecast(
     # of shape (n_cascade_levels,ar_order+1,m,n) for the autoregressive model
     R_c = nowcast_utils.stack_cascades(R_d, n_cascade_levels)
 
+    # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
     R_d = R_d[-1]
 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
@@ -444,7 +428,7 @@ def forecast(
     fft_objs.append(utils.get_method(fft_method, shape=R.shape[1:]))
 
 
-    R = R[-1, :, :]
+    #R = R[-1, :, :]
 
     print("Starting nowcast computation.")
 
@@ -476,46 +460,37 @@ def forecast(
         R_d["cascade_levels"] = np.stack(R_d["cascade_levels"])
     R_f_new = recomp_method(R_d)
 
-    #Tästä hommaudutaan eroon, kun tässä ei tehdä ensebmblea
-    #viitataan suoraan listan ekaan jäseneen fft_objs[0], jos tää
-    #oikeesti tarvitaan, niin yllä ei tarvinne muodostaa listaa.
-    if domain == "spectral":
-        R_f_new = fft_objs[0].irfft2(R_f_new)
 
-    if mask_method is not None:
-        # apply the precipitation mask to prevent generation of new
-        # precipitation into areas where it was not originally
-        # observed
-        R_cmin = R_f_new.min()
-        if mask_method == "incremental":
-            R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
-            MASK_prec_ = R_f_new > R_cmin
-        else:
-            MASK_prec_ = MASK_prec
+    # if mask_method is not None:
+    #     # apply the precipitation mask to prevent generation of new
+    #     # precipitation into areas where it was not originally
+    #     # observed
+    #     R_cmin = R_f_new.min()
+    #     if mask_method == "incremental":
+    #         R_f_new = R_cmin + (R_f_new - R_cmin) * MASK_prec[j]
+    #         MASK_prec_ = R_f_new > R_cmin
+    #     else:
+    #         MASK_prec_ = MASK_prec
 
-        # Set to min value outside of mask
-        R_f_new[~MASK_prec_] = R_cmin
+    #     # Set to min value outside of mask
+    #     R_f_new[~MASK_prec_] = R_cmin
 
-    if probmatching_method == "cdf":
-        # adjust the CDF of the forecast to match the most recently
-        # observed precipitation field
-        R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
-    elif probmatching_method == "mean":
-        MASK = R_f_new >= R_thr
-        mu_fct = np.mean(R_f_new[MASK])
-        R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
+    # if probmatching_method == "cdf":
+    #     # adjust the CDF of the forecast to match the most recently
+    #     # observed precipitation field
+    #     R_f_new = probmatching.nonparam_match_empirical_cdf(R_f_new, R)
+    # elif probmatching_method == "mean":
+    #     MASK = R_f_new >= R_thr
+    #     mu_fct = np.mean(R_f_new[MASK])
+    #     R_f_new[MASK] = R_f_new[MASK] - mu_fct + mu_0
 
-    if mask_method == "incremental":
-        MASK_prec = _compute_incremental_mask(
-            R_f_new >= R_thr, struct, mask_rim
-        )
+    # if mask_method == "incremental":
+    #     MASK_prec = _compute_incremental_mask(
+    #         R_f_new >= R_thr, struct, mask_rim
+    #     )
 
-    R_f_new[domain_mask] = np.nan
-
-    R_f_out = []
-    extrap_kwargs_ = extrap_kwargs.copy()
-
-    V_pert = V
+    # R_f_new[domain_mask] = np.nan
+    return R_f_new
 
 
 

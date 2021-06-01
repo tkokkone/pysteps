@@ -10,7 +10,7 @@ from pysteps import io, nowcasts, rcparams, noise, utils
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing.ensemblestats import excprob
 from pysteps.utils import conversion, dimension, transformation
-from pysteps.visualization import plot_precip_field
+from pysteps.visualization import plot_precip_field, animate
 
 # Set simulation parameters
 n_timesteps = 3
@@ -29,7 +29,7 @@ fft_method="numpy"
 #a_beta2 = -3.262
 #b_beta2 = -0.02521
 #c_beta2 = -0.07435  
-p_pow = np.array([2.0,0.0,-2.0,-2.0]) #~p0 from fftgenerators.py
+p_pow = np.array([2.0,1.0,-2.0,-2.0]) #~p0 from fftgenerators.py
 ar_par = np.array([0.90,1.3,1.4])
 
 # Broken line parameters for field mean
@@ -212,10 +212,12 @@ noise_kwargs=dict()
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
-                ))        
+                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
+                ))
+p_pow[1]=10*p_pow[1]
+pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)         
 R.append(generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
+                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
                 ))
 R.append(generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
@@ -250,22 +252,34 @@ R[~np.isfinite(R)] = -15.0
 # The STEPS nowcast
 # TEEMU: STEPS simulation. Mitä argumentteja tarvitaan?
 nowcast_method = nowcasts.get_method("steps_sim")
-R_f = nowcast_method(
-    R[-3:, :, :],
-    r_mean,
-    vx,
-    vy,
-    ar_par,
-    n_cascade_levels=6,
-    R_thr=-10.0,
-    kmperpixel=2.0,
-    timestep=timestep,
-    noise_method="parametric_sim",
-    vel_pert_method="bps",
-    mask_method="incremental",
-    seed=seed,
-)
 
+R_sim = []
+for i in range(n_timesteps):
+    R_new = nowcast_method(
+                R,
+                r_mean,
+                vx,
+                vy,
+                ar_par,
+                n_cascade_levels=6,
+                R_thr=-10.0,
+                kmperpixel=2.0,
+                timestep=timestep,
+                noise_method="parametric_sim",
+                vel_pert_method="bps",
+                mask_method="incremental",
+                seed=seed,
+    )
+    R_sim.append(R_new)
+    R[0] = R[1]
+    R[1] = R_new
+    R[2] = generate_noise(
+                    pp, randstate=None, fft_method=fft, domain=domain
+                )
+
+
+R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
+animate(R_sim, nloops=10)
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 
