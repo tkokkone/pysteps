@@ -408,7 +408,7 @@ def forecast(
     nowcast_utils.print_ar_params(PHI)
 
     # TEEMU: copy the last element in R_c to EPS
-    EPS = [R_c[i][-1].copy() for j in range(n_cascade_levels)]
+    EPS = [R_c[i][-1].copy() for i in range(n_cascade_levels)]
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
     R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]

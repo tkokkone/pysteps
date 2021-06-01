@@ -238,19 +238,6 @@ R[~np.isfinite(R)] = -15.0
 # Nicely print the metadata
 #pprint(metadata)
 
-###############################################################################
-# Deterministic nowcast with S-PROG
-# ---------------------------------
-#
-# First, the motiong field is estimated using a local tracking approach based
-# on the Lucas-Kanade optical flow.
-# The motion field can then be used to generate a deterministic nowcast with
-# the S-PROG model, which implements a scale filtering appraoch in order to
-# progressively remove the unpredictable spatial scales during the forecast.
-
-# Estimate the motion field
-#V = dense_lucaskanade(R)
-
 
 ###############################################################################
 # Stochastic nowcast with STEPS
