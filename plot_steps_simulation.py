@@ -13,7 +13,7 @@ from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field, animate
 
 # Set simulation parameters
-n_timesteps = 3
+n_timesteps = 30
 timestep = 5 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
@@ -195,7 +195,6 @@ v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir,
 vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag 
 
-
 ###############################################################################
 # Create the first precipitation fields, the nuber is determined by the order of
 # the ar process, in this example it is two. Maybe later the second one should
@@ -212,12 +211,12 @@ noise_kwargs=dict()
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
-                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
+                    pp, randstate=None,fft_method=fft, domain=domain
                 ))
-p_pow[1]=10*p_pow[1]
+#p_pow[1]=10*p_pow[1]
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)         
 R.append(generate_noise(
-                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
+                    pp, randstate=None,fft_method=fft, domain=domain
                 ))
 R.append(generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain

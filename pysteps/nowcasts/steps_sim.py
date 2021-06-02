@@ -327,8 +327,14 @@ def forecast(
             -1
         ]
 
+    #V:n yksikkö on solu.
+    #V = [np.ones(R[0].shape),np.ones(R[0].shape)]
     V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
+    #R[:,:,:] = 1
+    #R[0,10:20,10:20] = 2
+    #R[1,10:20,10:20] = 2
+    #R[2,10:20,10:20] = 2
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
 
