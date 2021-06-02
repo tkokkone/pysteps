@@ -7,12 +7,14 @@ import math
 from datetime import datetime
 from pprint import pprint
 from pysteps import io, nowcasts, rcparams, noise, utils
+from pysteps import extrapolation
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing.ensemblestats import excprob
 from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field, animate
 
 # Set simulation parameters
+extrap_method = "semilagrangian"
 n_timesteps = 30
 timestep = 5 #length of timestep between precipitation fields
 seed = 24
@@ -199,22 +201,35 @@ vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 # Create the first precipitation fields, the nuber is determined by the order of
 # the ar process, in this example it is two. Maybe later the second one should
 # be AR(1) of the first one, but is ignored for now
-R_ini = []
-R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
-R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+#R_ini = []
+#R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+#R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 # Change the type of R to align with pySTEPS
-R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
+#R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
+
+
+
+   
+R1_ini = np.ones((ny_field,nx_field))
+R1_ini[10:20,10:20] = 2
+x_values, y_values = np.meshgrid(np.arange(R1_ini.shape[2]), np.arange(R1_ini.shape[1]))
+xy_coords = np.stack([x_values, y_values])
+V = [np.ones(R[0].shape),np.ones(R[0].shape)]
+extrap_kwargs = None
+extrap_kwargs["xy_coords"] = xy_coords
+extrap_kwargs["allow_nonfinite_values"] = True
+extrapolator_method = extrapolation.get_method(extrap_method)
+R2_ini = extrapolator_method(R1_ini, V, 1, "min", **extrap_kwargs)[-1]
 
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
-R = []        
-R.append(generate_noise(
-                    pp, randstate=None,fft_method=fft, domain=domain
-                ))
-#p_pow[1]=10*p_pow[1]
-pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)         
+R = []
+#R.append(generate_noise(
+#                    pp, randstate=None,fft_method=fft, domain=domain
+#                ))
+
 R.append(generate_noise(
                     pp, randstate=None,fft_method=fft, domain=domain
                 ))
