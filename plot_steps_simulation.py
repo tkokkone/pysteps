@@ -212,32 +212,35 @@ vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
    
 R1_ini = np.ones((ny_field,nx_field))
 R1_ini[10:20,10:20] = 2
-x_values, y_values = np.meshgrid(np.arange(R1_ini.shape[2]), np.arange(R1_ini.shape[1]))
+x_values, y_values = np.meshgrid(np.arange(R1_ini.shape[1]), np.arange(R1_ini.shape[0]))
 xy_coords = np.stack([x_values, y_values])
-V = [np.ones(R[0].shape),np.ones(R[0].shape)]
-extrap_kwargs = None
+V = [np.ones(R1_ini.shape),np.ones(R1_ini.shape)]
+V = np.concatenate([V_[None, :, :] for V_ in V])
+extrap_kwargs = dict()
 extrap_kwargs["xy_coords"] = xy_coords
 extrap_kwargs["allow_nonfinite_values"] = True
 extrapolator_method = extrapolation.get_method(extrap_method)
 R2_ini = extrapolator_method(R1_ini, V, 1, "min", **extrap_kwargs)[-1]
 
-fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
-init_noise, generate_noise = noise.get_method(noise_method)
-noise_kwargs=dict()
-pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
+#fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
+#init_noise, generate_noise = noise.get_method(noise_method)
+#noise_kwargs=dict()
+#pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []
 #R.append(generate_noise(
 #                    pp, randstate=None,fft_method=fft, domain=domain
 #                ))
 
-R.append(generate_noise(
-                    pp, randstate=None,fft_method=fft, domain=domain
-                ))
-R.append(generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
-                ))
+#R.append(generate_noise(
+#                    pp, randstate=None,fft_method=fft, domain=domain
+#                ))
+#R.append(generate_noise(
+#                    pp, randstate=None, fft_method=fft, domain=domain
+#                ))
+R.append(R1_ini)
+R.append(R2_ini)
+R.append(R1_ini*999) #Sama mitä tänne laittaa, kunhan hoitaa AR-mallisa että innovaatiota ei käytetyä
 R = np.concatenate([R_[None, :, :] for R_ in R])   
-
 
 # Plot the rainfall field
 plot_precip_field(R[-1, :, :])
@@ -287,9 +290,10 @@ for i in range(n_timesteps):
     R_sim.append(R_new)
     R[0] = R[1]
     R[1] = R_new
-    R[2] = generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
-                )
+    #R[2] = generate_noise(
+    #                pp, randstate=None, fft_method=fft, domain=domain
+    #            )
+    R[2] = R1_ini 
 
 
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])

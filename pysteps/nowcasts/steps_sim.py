@@ -328,8 +328,8 @@ def forecast(
         ]
 
     #V:n yksikkö on solu.
-    #V = [np.ones(R[0].shape),np.ones(R[0].shape)]
-    V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    V = [np.ones(R[0].shape),np.ones(R[0].shape)]
+    #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     #R[:,:,:] = 1
     #R[0,10:20,10:20] = 2
@@ -395,13 +395,33 @@ def forecast(
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
 
+
+
+    PHI[0,0] = 0.7
+    PHI[0,1] = 0.3
+    PHI[0,2] = 0
+    PHI[1,0] = 0.7
+    PHI[1,1] = 0.3
+    PHI[1,2] = 0
+    PHI[2,0] = 0.7
+    PHI[2,1] = 0.3
+    PHI[2,2] = 0
+    PHI[3,0] = 0.7
+    PHI[3,1] = 0.3
+    PHI[3,2] = 0
+    PHI[4,0] = 0.7
+    PHI[4,1] = 0.3
+    PHI[4,2] = 0
+    PHI[5,0] = 0.7
+    PHI[5,1] = 0.3
+    PHI[5,2] = 0    
     nowcast_utils.print_ar_params(PHI)
 
     # TEEMU: copy the last element in R_c to EPS
     EPS = [R_c[i][-1].copy() for i in range(n_cascade_levels)]
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
-    R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
+    R_c = [R_c[i][-ar_order-1:-ar_order+1] for i in range(n_cascade_levels)]
 
 
     if probmatching_method == "mean":
