@@ -211,7 +211,7 @@ vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
    
 R1_ini = np.ones((ny_field,nx_field))
-R1_ini[10:20,10:20] = 2
+R1_ini[10:20,10:20] = 10
 x_values, y_values = np.meshgrid(np.arange(R1_ini.shape[1]), np.arange(R1_ini.shape[0]))
 xy_coords = np.stack([x_values, y_values])
 V = [np.ones(R1_ini.shape),np.ones(R1_ini.shape)]
@@ -221,6 +221,9 @@ extrap_kwargs["xy_coords"] = xy_coords
 extrap_kwargs["allow_nonfinite_values"] = True
 extrapolator_method = extrapolation.get_method(extrap_method)
 R2_ini = extrapolator_method(R1_ini, V, 1, "min", **extrap_kwargs)[-1]
+R2_ini = 100*R2_ini
+R3_ini = extrapolator_method(R1_ini, V, 5, "min", **extrap_kwargs)[-1]
+R3_ini = 1000*R3_ini
 
 #fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 #init_noise, generate_noise = noise.get_method(noise_method)
@@ -239,7 +242,7 @@ R = []
 #                ))
 R.append(R1_ini)
 R.append(R2_ini)
-R.append(R1_ini*999) #Sama mitä tänne laittaa, kunhan hoitaa AR-mallisa että innovaatiota ei käytetyä
+R.append(R3_ini) #Sama mitä tänne laittaa, kunhan hoitaa AR-mallisa että innovaatiota ei käytetyä
 R = np.concatenate([R_[None, :, :] for R_ in R])   
 
 # Plot the rainfall field
