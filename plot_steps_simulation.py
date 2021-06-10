@@ -6,6 +6,7 @@ import math
 
 from datetime import datetime
 from pprint import pprint
+from pysteps import extrapolation
 from pysteps import io, nowcasts, rcparams, noise, utils
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing.ensemblestats import excprob
@@ -62,8 +63,7 @@ no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
-    
-
+extrap_method = "semilagrangian"   
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
     """A function to create multiplicative broken lines
@@ -193,8 +193,14 @@ v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir,
 
 #Compute advection variables in x- and y-directions
 vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
-vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag 
+vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
+#Tämä vain kokeilua varten, V joka paikassa 1
+V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
+V = np.concatenate([V_[None, :, :] for V_ in V])
+
+x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
+xy_coords = np.stack([x_values, y_values])
 
 ###############################################################################
 # Create the first precipitation fields, the nuber is determined by the order of
@@ -212,13 +218,13 @@ noise_kwargs=dict()
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
-                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
+                    pp, randstate=None,fft_method=fft, domain=domain
                 ))
-p_pow[1]=10*p_pow[1]
-pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)         
-R.append(generate_noise(
-                    pp, randstate=None, seed=1234,fft_method=fft, domain=domain
-                ))
+extrapolator_method = extrapolation.get_method(extrap_method)
+extrap_kwargs = dict()
+extrap_kwargs["xy_coords"] = xy_coords
+extrap_kwargs["allow_nonfinite_values"] = True
+R.append(extrapolator_method(R[0], V, 1, "min", **extrap_kwargs)[-1])
 R.append(generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
                 ))

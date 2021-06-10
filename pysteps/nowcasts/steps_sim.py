@@ -395,7 +395,7 @@ def forecast(
     EPS = [R_c[i][-1].copy() for i in range(n_cascade_levels)]
     # discard all except the p-1 last cascades because they are not needed for
     # the AR(p) model
-    R_c = [R_c[i][-ar_order:] for i in range(n_cascade_levels)]
+    R_c = [R_c[i][-ar_order-1:-ar_order+1] for i in range(n_cascade_levels)]
 
 
     if probmatching_method == "mean":
