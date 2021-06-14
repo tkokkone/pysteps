@@ -14,7 +14,7 @@ from pysteps.utils import conversion, dimension, transformation
 from pysteps.visualization import plot_precip_field, animate
 
 # Set simulation parameters
-n_timesteps = 3
+n_timesteps = 100
 timestep = 5 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
@@ -195,8 +195,8 @@ v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir,
 vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
-#Tämä vain kokeilua varten, V joka paikassa 1
-V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
+#Tämä vain kokeilua varten, V joka paikassa 1 tai 0
+V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
 V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
@@ -261,6 +261,7 @@ nowcast_method = nowcasts.get_method("steps_sim")
 
 R_sim = []
 for i in range(n_timesteps):
+    R_prev = R[1].copy()
     R_new = nowcast_method(
                 R,
                 r_mean,
@@ -277,7 +278,7 @@ for i in range(n_timesteps):
                 seed=seed,
     )
     R_sim.append(R_new)
-    R[0] = R[1]
+    R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
@@ -285,7 +286,7 @@ for i in range(n_timesteps):
 
 
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
-animate(R_sim, nloops=10)
+animate(R_sim, nloops=2)
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 

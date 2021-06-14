@@ -327,7 +327,8 @@ def forecast(
             -1
         ]
 
-    V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    V = [np.zeros(R[0].shape),np.zeros(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
@@ -358,7 +359,8 @@ def forecast(
     R_c = nowcast_utils.stack_cascades(R_d, n_cascade_levels)
 
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
-    R_d = R_d[-1]
+    # ei oteta viimeistä, niin erilainen ka ja hajonta ei ehkä sotke?
+    R_d = R_d[1]
 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
@@ -388,6 +390,45 @@ def forecast(
     PHI = np.empty((n_cascade_levels, ar_order + 1))
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
+        
+    PHI[0,0] = 0.4
+    PHI[0,1] = 0.4
+    PHI[0,2] = 0.2
+    PHI[1,0] = 0.4
+    PHI[1,1] = 0.4
+    PHI[1,2] = 0.2
+    PHI[2,0] = 0.4
+    PHI[2,1] = 0.4
+    PHI[2,2] = 0.2
+    PHI[3,0] = 0.4
+    PHI[3,1] = 0.4
+    PHI[3,2] = 0.2
+    PHI[4,0] = 0.4
+    PHI[4,1] = 0.4
+    PHI[4,2] = 0.2
+    PHI[5,0] = 0.4
+    PHI[5,1] = 0.4
+    PHI[5,2] = 0.2            
+
+    #PHI[0,0] = 0.5
+    #PHI[0,1] = 0.5
+    #PHI[0,2] = 0
+    #PHI[1,0] = 0.5
+    #PHI[1,1] = 0.5
+    #PHI[1,2] = 0
+    #PHI[2,0] = 0.5
+    #PHI[2,1] = 0.5
+    #PHI[2,2] = 0
+    #PHI[3,0] = 0.5
+    #PHI[3,1] = 0.5
+    #PHI[3,2] = 0
+    #PHI[4,0] = 0.5
+    #PHI[4,1] = 0.5
+    #PHI[4,2] = 0
+    #PHI[5,0] = 0.5
+    #PHI[5,1] = 0.5
+    #PHI[5,2] = 0         
+
 
     nowcast_utils.print_ar_params(PHI)
 
@@ -444,7 +485,7 @@ def forecast(
         EPS_ = EPS[i]
         #EPS_ *= noise_std_coeffs[i]
         R_c[i] = autoregression.iterate_ar_model(
-            R_c[i], PHI[i, :], eps=EPS_
+             R_c[i], PHI[i, :], eps=EPS_
         )
 
     #Tuskin tarvitaan näitä kahta riviä...
