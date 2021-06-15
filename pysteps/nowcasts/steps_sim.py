@@ -328,7 +328,7 @@ def forecast(
         ]
 
     #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
-    V = [np.zeros(R[0].shape),np.zeros(R[0].shape)]
+    V = [np.ones(R[0].shape),np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
@@ -391,44 +391,81 @@ def forecast(
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
         
-    PHI[0,0] = 0.4
-    PHI[0,1] = 0.4
-    PHI[0,2] = 0.2
-    PHI[1,0] = 0.4
-    PHI[1,1] = 0.4
-    PHI[1,2] = 0.2
-    PHI[2,0] = 0.4
-    PHI[2,1] = 0.4
-    PHI[2,2] = 0.2
-    PHI[3,0] = 0.4
-    PHI[3,1] = 0.4
-    PHI[3,2] = 0.2
-    PHI[4,0] = 0.4
-    PHI[4,1] = 0.4
-    PHI[4,2] = 0.2
-    PHI[5,0] = 0.4
-    PHI[5,1] = 0.4
-    PHI[5,2] = 0.2            
+    #PHI[0,0] = 0
+    #PHI[0,1] = 0
+    #PHI[0,2] = 1
+    #PHI[1,0] = 0
+    #PHI[1,1] = 0
+    #PHI[1,2] = 1
+    #PHI[2,0] = 0
+    #PHI[2,1] = 0
+    #PHI[2,2] = 1
+    #PHI[3,0] = 0
+    #PHI[3,1] = 0
+    #PHI[3,2] = 1
+    #PHI[4,0] = 0
+    #PHI[4,1] = 0
+    #PHI[4,2] = 1
+    #PHI[5,0] = 0
+    #PHI[5,1] = 0
+    #PHI[5,2] = 1
 
-    #PHI[0,0] = 0.5
-    #PHI[0,1] = 0.5
-    #PHI[0,2] = 0
-    #PHI[1,0] = 0.5
-    #PHI[1,1] = 0.5
-    #PHI[1,2] = 0
-    #PHI[2,0] = 0.5
-    #PHI[2,1] = 0.5
-    #PHI[2,2] = 0
-    #PHI[3,0] = 0.5
-    #PHI[3,1] = 0.5
-    #PHI[3,2] = 0
-    #PHI[4,0] = 0.5
-    #PHI[4,1] = 0.5
-    #PHI[4,2] = 0
-    #PHI[5,0] = 0.5
-    #PHI[5,1] = 0.5
-    #PHI[5,2] = 0         
+    PHI[0,0] = 0
+    PHI[0,1] = 1
+    PHI[0,2] = 0
+    PHI[1,0] = 0
+    PHI[1,1] = 1
+    PHI[1,2] = 0
+    PHI[2,0] = 0
+    PHI[2,1] = 1
+    PHI[2,2] = 0
+    PHI[3,0] = 0
+    PHI[3,1] = 1
+    PHI[3,2] = 0
+    PHI[4,0] = 0
+    PHI[4,1] = 1
+    PHI[4,2] = 0
+    PHI[5,0] = 0
+    PHI[5,1] = 1
+    PHI[5,2] = 0            
 
+    # PHI[0,0] = 0.5
+    # PHI[0,1] = 0.5
+    # PHI[0,2] = 0
+    # PHI[1,0] = 0.5
+    # PHI[1,1] = 0.5
+    # PHI[1,2] = 0
+    # PHI[2,0] = 0.5
+    # PHI[2,1] = 0.5
+    # PHI[2,2] = 0
+    # PHI[3,0] = 0.5
+    # PHI[3,1] = 0.5
+    # PHI[3,2] = 0
+    # PHI[4,0] = 0.5
+    # PHI[4,1] = 0.5
+    # PHI[4,2] = 0
+    # PHI[5,0] = 0.5
+    # PHI[5,1] = 0.5
+    # PHI[5,2] = 0         
+
+    # PHI[0,0] = 0.5
+    # PHI[0,1] = 0.5
+    # PHI[0,2] = 0
+    # PHI[1,0] = 0.47
+    # PHI[1,1] = 0.47
+    # PHI[1,2] = 0.06
+    # PHI[2,0] = 0.45
+    # PHI[2,1] = 0.45
+    # PHI[2,2] = 0.10
+    # PHI[3,0] = 0.43
+    # PHI[3,1] = 0.43
+    # PHI[3,2] = 0.14
+    # PHI[4,0] = 0.4
+    # PHI[4,1] = 0.4
+    # PHI[4,2] = 0.2
+    # PHI[5,0] = 0
+    # PHI[5,1] = 0
+    # PHI[5,2] = 1  
 
     nowcast_utils.print_ar_params(PHI)
 

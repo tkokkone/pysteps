@@ -196,7 +196,7 @@ vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
 #Tämä vain kokeilua varten, V joka paikassa 1 tai 0
-V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
+V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
 V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
@@ -286,7 +286,7 @@ for i in range(n_timesteps):
 
 
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
-animate(R_sim, nloops=2)
+animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 
