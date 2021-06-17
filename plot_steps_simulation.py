@@ -196,7 +196,7 @@ vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
 #Tämä vain kokeilua varten, V joka paikassa 1 tai 0
-V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
+V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
 V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
@@ -260,6 +260,7 @@ R[~np.isfinite(R)] = -15.0
 nowcast_method = nowcasts.get_method("steps_sim")
 
 R_sim = []
+f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
     R_prev = R[1].copy()
     R_new = nowcast_method(
@@ -278,15 +279,16 @@ for i in range(n_timesteps):
                 seed=seed,
     )
     R_sim.append(R_new)
+    f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
                     pp, randstate=None, fft_method=fft, domain=domain
                 )
 
-
+f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
-animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
+#animate(R_sim, savefig=True,path_outputs="../../Local/tmp")
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 
