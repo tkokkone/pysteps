@@ -63,7 +63,7 @@ no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
-extrap_method = "semilagrangian"   
+extrap_method = "semilagrangian_wrap"   
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
     """A function to create multiplicative broken lines
@@ -196,7 +196,7 @@ vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
 #Tämä vain kokeilua varten, V joka paikassa 1 tai 0
-V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
+V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
 V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
@@ -288,7 +288,7 @@ for i in range(n_timesteps):
 
 f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
-#animate(R_sim, savefig=True,path_outputs="../../Local/tmp")
+animate(R_sim, savefig=False,path_outputs="../../Local/tmp")
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 

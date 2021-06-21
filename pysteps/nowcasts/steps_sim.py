@@ -34,7 +34,7 @@ def forecast(
     R_thr=None,
     kmperpixel=None,
     timestep=None,
-    extrap_method="semilagrangian",
+    extrap_method="semilagrangian_wrap",
     decomp_method="fft",
     bandpass_filter_method="gaussian",
     noise_method="nonparametric",
@@ -327,8 +327,8 @@ def forecast(
             -1
         ]
 
-    #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
-    V = [np.zeros(R[0].shape),np.zeros(R[0].shape)]
+    V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    #V = [np.zeros(R[0].shape),np.zeros(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
@@ -361,7 +361,7 @@ def forecast(
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
     # ei oteta viimeistä, niin erilainen ka ja hajonta ei ehkä sotke?
     # kokeillaan kuitenkin viimeistä AR:ään
-    R_d = R_d[-1]
+    R_d = R_d[1]
 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
@@ -411,24 +411,24 @@ def forecast(
     # PHI[5,1] = 0
     # PHI[5,2] = 1
 
-    # PHI[0,0] = 0
-    # PHI[0,1] = 1
-    # PHI[0,2] = 0
-    # PHI[1,0] = 0
-    # PHI[1,1] = 1
-    # PHI[1,2] = 0
-    # PHI[2,0] = 0
-    # PHI[2,1] = 1
-    # PHI[2,2] = 0
-    # PHI[3,0] = 0
-    # PHI[3,1] = 1
-    # PHI[3,2] = 0
-    # PHI[4,0] = 0
-    # PHI[4,1] = 1
-    # PHI[4,2] = 0
-    # PHI[5,0] = 0
-    # PHI[5,1] = 1
-    # PHI[5,2] = 0            
+    PHI[0,0] = 0
+    PHI[0,1] = 1
+    PHI[0,2] = 0
+    PHI[1,0] = 0
+    PHI[1,1] = 1
+    PHI[1,2] = 0
+    PHI[2,0] = 0
+    PHI[2,1] = 1
+    PHI[2,2] = 0
+    PHI[3,0] = 0
+    PHI[3,1] = 1
+    PHI[3,2] = 0
+    PHI[4,0] = 0
+    PHI[4,1] = 1
+    PHI[4,2] = 0
+    PHI[5,0] = 0
+    PHI[5,1] = 1
+    PHI[5,2] = 0            
 
     # PHI[0,0] = 0.5
     # PHI[0,1] = 0.5
@@ -449,24 +449,24 @@ def forecast(
     # PHI[5,1] = 0.5
     # PHI[5,2] = 0         
 
-    PHI[0,0] = 0.5
-    PHI[0,1] = 0.5
-    PHI[0,2] = 0
-    PHI[1,0] = 0.47
-    PHI[1,1] = 0.47
-    PHI[1,2] = 0.06
-    PHI[2,0] = 0.45
-    PHI[2,1] = 0.45
-    PHI[2,2] = 0.10
-    PHI[3,0] = 0.43
-    PHI[3,1] = 0.43
-    PHI[3,2] = 0.14
-    PHI[4,0] = 0.4
-    PHI[4,1] = 0.4
-    PHI[4,2] = 0.2
-    PHI[5,0] = 0
-    PHI[5,1] = 0
-    PHI[5,2] = 1  
+    # PHI[0,0] = 0.2
+    # PHI[0,1] = 0.2
+    # PHI[0,2] = 0.6
+    # PHI[1,0] = 0.25
+    # PHI[1,1] = 0.25
+    # PHI[1,2] = 0.50
+    # PHI[2,0] = 0.35
+    # PHI[2,1] = 0.35
+    # PHI[2,2] = 0.30
+    # PHI[3,0] = 0.35
+    # PHI[3,1] = 0.35
+    # PHI[3,2] = 0.30
+    # PHI[4,0] = 0.45
+    # PHI[4,1] = 0.45
+    # PHI[4,2] = 0.05
+    # PHI[5,0] = 0.45
+    # PHI[5,1] = 0.45
+    # PHI[5,2] = 0.05 
 
     nowcast_utils.print_ar_params(PHI)
 

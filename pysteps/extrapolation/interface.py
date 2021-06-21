@@ -106,6 +106,7 @@ def _return_none(**kwargs):
 _extrapolation_methods = dict()
 _extrapolation_methods["eulerian"] = eulerian_persistence
 _extrapolation_methods["semilagrangian"] = semilagrangian.extrapolate
+_extrapolation_methods["semilagrangian_wrap"] = semilagrangian.extrapolate_wrap
 _extrapolation_methods[None] = _do_nothing
 _extrapolation_methods["none"] = _do_nothing
 
