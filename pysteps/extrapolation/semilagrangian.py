@@ -467,9 +467,9 @@ def extrapolate_wrap(
         coords_warped_x = coords_warped[0]
         coords_warped_y = coords_warped[1]
         coords_warped_x[coords_warped_x < 0] = coords_warped_x[coords_warped_x < 0] + nx
-        coords_warped_x[coords_warped_x > nx-1] = coords_warped_x[coords_warped_x > nx-1] - nx
+        coords_warped_x[coords_warped_x >= nx] = coords_warped_x[coords_warped_x >= nx] - nx
         coords_warped_y[coords_warped_y < 0] = coords_warped_y[coords_warped_y < 0] + ny
-        coords_warped_y[coords_warped_y > ny-1] = coords_warped_y[coords_warped_y > ny-1] - ny
+        coords_warped_y[coords_warped_y >= ny] = coords_warped_y[coords_warped_y >= ny] - ny
         
         coords_warped = [coords_warped_y, coords_warped_x]
 

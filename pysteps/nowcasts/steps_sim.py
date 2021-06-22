@@ -327,8 +327,8 @@ def forecast(
             -1
         ]
 
-    V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
-    #V = [np.zeros(R[0].shape),np.zeros(R[0].shape)]
+    #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
+    V = [np.ones(R[0].shape),np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
