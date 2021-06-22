@@ -361,8 +361,8 @@ def forecast(
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
     # ei oteta viimeistä, niin erilainen ka ja hajonta ei ehkä sotke?
     # kokeillaan kuitenkin viimeistä AR:ään
-    R_d = R_d[1]
-
+    R_d = R_d[-1]
+ 
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
     # forecast -funktioon.
@@ -411,24 +411,24 @@ def forecast(
     # PHI[5,1] = 0
     # PHI[5,2] = 1
 
-    PHI[0,0] = 0
-    PHI[0,1] = 1
-    PHI[0,2] = 0
-    PHI[1,0] = 0
-    PHI[1,1] = 1
-    PHI[1,2] = 0
-    PHI[2,0] = 0
-    PHI[2,1] = 1
-    PHI[2,2] = 0
-    PHI[3,0] = 0
-    PHI[3,1] = 1
-    PHI[3,2] = 0
-    PHI[4,0] = 0
-    PHI[4,1] = 1
-    PHI[4,2] = 0
-    PHI[5,0] = 0
-    PHI[5,1] = 1
-    PHI[5,2] = 0            
+    # PHI[0,0] = 0
+    # PHI[0,1] = 1
+    # PHI[0,2] = 0
+    # PHI[1,0] = 0
+    # PHI[1,1] = 1
+    # PHI[1,2] = 0
+    # PHI[2,0] = 0
+    # PHI[2,1] = 1
+    # PHI[2,2] = 0
+    # PHI[3,0] = 0
+    # PHI[3,1] = 1
+    # PHI[3,2] = 0
+    # PHI[4,0] = 0
+    # PHI[4,1] = 1
+    # PHI[4,2] = 0
+    # PHI[5,0] = 0
+    # PHI[5,1] = 1
+    # PHI[5,2] = 0            
 
     # PHI[0,0] = 0.5
     # PHI[0,1] = 0.5
@@ -537,7 +537,13 @@ def forecast(
     ]
     if domain == "spatial":
         R_d["cascade_levels"] = np.stack(R_d["cascade_levels"])
+        
+    
     R_f_new = recomp_method(R_d)
+    def normalize_field(field):
+        return (field - field.mean()) / field.std()
+
+    R_f_new = normalize_field(R_f_new)
 
 
     # if mask_method is not None:

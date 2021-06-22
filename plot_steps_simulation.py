@@ -218,7 +218,7 @@ noise_kwargs=dict()
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
-                    pp, randstate=None,fft_method=fft, domain=domain
+                    pp, randstate=None,seed=110,fft_method=fft, domain=domain
                 ))
 extrapolator_method = extrapolation.get_method(extrap_method)
 extrap_kwargs = dict()
@@ -226,7 +226,7 @@ extrap_kwargs["xy_coords"] = xy_coords
 extrap_kwargs["allow_nonfinite_values"] = True
 R.append(extrapolator_method(R[0], V, 1, "min", **extrap_kwargs)[-1])
 R.append(generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
+                    pp, randstate=None, seed=2345,fft_method=fft, domain=domain
                 ))
 R = np.concatenate([R_[None, :, :] for R_ in R])   
 
@@ -283,7 +283,7 @@ for i in range(n_timesteps):
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
-                    pp, randstate=None, fft_method=fft, domain=domain
+                    pp, randstate=None,fft_method=fft, domain=domain
                 )
 
 f.close()
