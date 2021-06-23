@@ -361,7 +361,7 @@ def forecast(
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
     # ei oteta viimeistä, niin erilainen ka ja hajonta ei ehkä sotke?
     # kokeillaan kuitenkin viimeistä AR:ään
-    R_d = R_d[-1]
+    R_d = R_d[2]
  
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina

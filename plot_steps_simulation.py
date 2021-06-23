@@ -15,7 +15,7 @@ from pysteps.visualization import plot_precip_field, animate
 
 # Set simulation parameters
 n_timesteps = 100
-timestep = 5 #length of timestep between precipitation fields
+timestep = 6 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
 ny_field = 264 #number of rows in simulated fields
@@ -30,8 +30,8 @@ fft_method="numpy"
 #a_beta2 = -3.262
 #b_beta2 = -0.02521
 #c_beta2 = -0.07435  
-p_pow = np.array([2.0,1.0,-2.0,-2.0]) #~p0 from fftgenerators.py
-ar_par = np.array([0.90,1.3,1.4])
+p_pow = np.array([18,1.0,-2.0,-2.0]) #~p0 from fftgenerators.py
+ar_par = np.array([0.15,1.73,1.8])
 
 # Broken line parameters for field mean
 mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
@@ -271,7 +271,7 @@ for i in range(n_timesteps):
                 ar_par,
                 n_cascade_levels=6,
                 R_thr=-10.0,
-                kmperpixel=2.0,
+                kmperpixel=1.0,
                 timestep=timestep,
                 noise_method="parametric_sim",
                 vel_pert_method="bps",
@@ -288,7 +288,7 @@ for i in range(n_timesteps):
 
 f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
-animate(R_sim, savefig=False,path_outputs="../../Local/tmp")
+animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
 # Back-transform to rain rates
 R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
 
