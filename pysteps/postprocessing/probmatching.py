@@ -19,7 +19,39 @@ import numpy as np
 from scipy import interpolate as sip
 from scipy import optimize as sop
 
-def set_stats():
+def set_stats(field, stats_kwargs):
+    """Sets the field statistics (mean, std, WAR) to supplied values
+    
+    Parameters
+    ----------
+    field: array_like.
+        The field whose statistics are adjusted
+    stats_kwargs: dictionary
+        Mean, std and WAR of the returned field
+        
+    Returns
+    -------
+    out: ndarray
+        Field with adjusted data matchin the supplied mean, std and WAR values
+    """
+
+    nx = field.shape[1]
+    ny = field.shape[0]
+    war = stats_kwargs["war"]
+    mean = stats_kwargs["mean"]
+    std = stats_kwargs["std"]
+    #TODO: link bounds a and b to mean and std
+    a = 0 
+    b = 50
+    
+    field = ((field - field.mean()) / field.std()) * std + mean;
+    
+    
+    def war_obj_func(x):
+        obj = len(np.where(field > x) / (nx * ny) - war
+        return obj
+    
+    thold = sop.bisect(war_obj_func, a, b)
     
 def compute_empirical_cdf(bin_edges, hist):
     """Compute an empirical cumulative distribution function from the given
