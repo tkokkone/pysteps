@@ -19,7 +19,8 @@ import numpy as np
 from scipy import interpolate as sip
 from scipy import optimize as sop
 
-
+def set_stats():
+    
 def compute_empirical_cdf(bin_edges, hist):
     """Compute an empirical cumulative distribution function from the given
     histogram.

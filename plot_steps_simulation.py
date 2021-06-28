@@ -30,8 +30,8 @@ fft_method="numpy"
 #a_beta2 = -3.262
 #b_beta2 = -0.02521
 #c_beta2 = -0.07435  
-p_pow = np.array([18,1.0,-2.0,-2.0]) #~p0 from fftgenerators.py
-ar_par = np.array([0.15,1.73,1.8])
+p_pow = np.array([18,1.0,-2.703,-3.665]) #~p0 from fftgenerators.py
+ar_par = np.array([0.2,1.8,2])
 
 # Broken line parameters for field mean
 mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
@@ -278,14 +278,16 @@ for i in range(n_timesteps):
                 mask_method="incremental",
                 seed=seed,
     )
-    R_sim.append(R_new)
-    f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
+
+    #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
                     pp, randstate=None,fft_method=fft, domain=domain
                 )
-
+    set_stats(R_new)
+    R_sim.append(R_new)
+    
 f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
 animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
