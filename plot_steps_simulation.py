@@ -11,7 +11,11 @@ from pysteps import io, nowcasts, rcparams, noise, utils
 from pysteps.motion.lucaskanade import dense_lucaskanade
 from pysteps.postprocessing.ensemblestats import excprob
 from pysteps.utils import conversion, dimension, transformation
+from pysteps.utils.dimension import clip_domain
 from pysteps.visualization import plot_precip_field, animate
+from pysteps.postprocessing.probmatching import set_stats
+
+stats_kwargs = dict()
 
 # Set simulation parameters
 n_timesteps = 100
@@ -285,7 +289,11 @@ for i in range(n_timesteps):
     R[2] = generate_noise(
                     pp, randstate=None,fft_method=fft, domain=domain
                 )
-    set_stats(R_new)
+    stats_kwargs["mean"] = 13
+    stats_kwargs["std"] = 2
+    stats_kwargs["war"] = 0.17
+    R_new = set_stats(R_new,stats_kwargs)
+    R_new = clip_domain(R_new, metadata)
     R_sim.append(R_new)
     
 f.close()

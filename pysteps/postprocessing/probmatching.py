@@ -48,10 +48,14 @@ def set_stats(field, stats_kwargs):
     
     
     def war_obj_func(x):
-        obj = len(np.where(field > x) / (nx * ny) - war
+        obj = len(np.where(field > x)[0]) / (nx * ny) - war
         return obj
     
     thold = sop.bisect(war_obj_func, a, b)
+    field[field < thold] = 0
+    #Do this again after messing the stats up with WAR adjustment 
+    field = ((field - field.mean()) / field.std()) * std + mean;
+    return field
     
 def compute_empirical_cdf(bin_edges, hist):
     """Compute an empirical cumulative distribution function from the given
