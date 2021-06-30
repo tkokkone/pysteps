@@ -16,6 +16,7 @@ from pysteps.visualization import plot_precip_field, animate
 from pysteps.postprocessing.probmatching import set_stats
 
 stats_kwargs = dict()
+metadata = dict()
 
 # Set simulation parameters
 n_timesteps = 100
@@ -23,7 +24,24 @@ timestep = 6 #length of timestep between precipitation fields
 seed = 24
 nx_field = 264 #number of columns in simulated fields
 ny_field = 264 #number of rows in simulated fields
+kmperpixel = 1.0
 domain = "spatial"
+metadata["x1"] = 0.0
+metadata["y1"] = 0.0
+metadata["x2"] = nx_field * kmperpixel
+metadata["y2"] = ny_field * kmperpixel
+metadata["xpixelsize"] = kmperpixel
+metadata["ypixelsize"] = kmperpixel
+metadata["zerovalue"] = 0.0
+metadata["yorigin"] = "lower"
+
+# bounding box coordinates for the extracted middel part of the entire domain
+extent = [0,0,0,0]
+extent[0] = nx_field / 4 * kmperpixel
+extent[1] = 3 * nx_field / 4 * kmperpixel
+extent[2] = ny_field / 4 * kmperpixel
+extent[3] = 3 * ny_field / 4 * kmperpixel
+
 
 # Set noise parameters
 noise_method="parametric_sim"
@@ -275,7 +293,7 @@ for i in range(n_timesteps):
                 ar_par,
                 n_cascade_levels=6,
                 R_thr=-10.0,
-                kmperpixel=1.0,
+                kmperpixel=kmperpixel,
                 timestep=timestep,
                 noise_method="parametric_sim",
                 vel_pert_method="bps",
@@ -292,8 +310,8 @@ for i in range(n_timesteps):
     stats_kwargs["mean"] = 13
     stats_kwargs["std"] = 2
     stats_kwargs["war"] = 0.17
-    R_new = set_stats(R_new,stats_kwargs)
-    R_new = clip_domain(R_new, metadata)
+    #R_new = set_stats(R_new,stats_kwargs)
+    R_new, metadata_clip = clip_domain(R_new, metadata, extent)
     R_sim.append(R_new)
     
 f.close()
