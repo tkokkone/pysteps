@@ -284,12 +284,12 @@ nowcast_method = nowcasts.get_method("steps_sim")
 R_sim = []
 f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
+    pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     R_prev = R[1].copy()
     R_new = nowcast_method(
                 R,
-                r_mean,
-                vx,
-                vy,
+                vx[i],
+                vy[i],
                 ar_par,
                 n_cascade_levels=6,
                 R_thr=-10.0,

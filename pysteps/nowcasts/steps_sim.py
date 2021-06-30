@@ -26,7 +26,6 @@ from pysteps.timeseries import autoregression, correlation
 
 def forecast(
     R,
-    r_mean,
     vx,
     vy,
     ar_par,
@@ -65,15 +64,10 @@ def forecast(
       Array of shape (ar_order+1,m,n) containing the input precipitation fields
       ordered by timestamp from oldest to newest. The time steps between the
       inputs are assumed to be regular.
-    r_mean: array-like
-      Vector of shape (timesteps,1) containing the timeseries of mean 
-      areal rainfall      
-    vx: array-like
-      Vector of shape (timesteps,1) containing the timeseries of advection 
-      velocity in x direction
-    vy: array-like
-      Vector of shape (timesteps,1) containing the timeseries of advection 
-      velocity in y direction
+    vx: float
+      Advection velocity in x direction
+    vy: float
+      Advection velocity in y direction
     ar_par: array-like
         Vector of shape (3,1) containing the parameters relating mean area
         rainfall to temporal autocorrelations
@@ -327,8 +321,8 @@ def forecast(
             -1
         ]
 
-    #V = [vx[0]*np.ones(R[0].shape),vy[0]*np.ones(R[0].shape)]
-    V = [np.ones(R[0].shape),np.ones(R[0].shape)]
+    V = [vx*np.ones(R[0].shape),vy*np.ones(R[0].shape)]
+    #V = [np.ones(R[0].shape),np.ones(R[0].shape)]
     V = np.concatenate([V_[None, :, :] for V_ in V])
     for i in range(ar_order):
         R[i, :, :] = f(R, i)
