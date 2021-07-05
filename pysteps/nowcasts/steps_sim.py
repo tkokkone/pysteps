@@ -61,9 +61,10 @@ def forecast(
     Parameters
     ----------
     R: array-like
-      Array of shape (ar_order+1,m,n) containing the input precipitation fields
-      ordered by timestamp from oldest to newest. The time steps between the
-      inputs are assumed to be regular.
+      Array of shape (3,m,n) containing the two newest precipitation fields
+      and the innovation (coloured noise) fiedl ordered by timestamp from 
+      oldest to newest. The time steps between the inputs are assumed to be 
+      regular.
     vx: float
       Advection velocity in x direction
     vy: float
@@ -194,8 +195,6 @@ def forecast(
     :cite:`Seed2003`, :cite:`BPS2006`, :cite:`SPN2013`, :cite:`PCH2019b`
     """
 
-    DASK_IMPORTED = False
-
     _check_inputs(R, ar_order)
 
     if extrap_kwargs is None:
@@ -291,11 +290,6 @@ def forecast(
 
     xy_coords = np.stack([x_values, y_values])
 
-    #TEEMU: EN ymmärrä, miksi tämä. Ymmärtääkseni tekee identtisen kopion, jos
-    #valmiiksi ar_order+1 kenttää. Ilmeiesesti siltä varalta, että niitä olisi
-    #enemmän.
-    #R = R[-(ar_order + 1) :, :, :].copy()
-
     # determine the domain mask from non-finite values
     domain_mask = np.logical_or.reduce(
         [~np.isfinite(R[i, :]) for i in range(R.shape[0])]
@@ -314,7 +308,6 @@ def forecast(
     extrap_kwargs = extrap_kwargs.copy()
     extrap_kwargs["xy_coords"] = xy_coords
     extrap_kwargs["allow_nonfinite_values"] = True
-    res = list()
 
     def f(R, i):
         return extrapolator_method(R[i, :, :], V, ar_order - i, "min", **extrap_kwargs)[
@@ -353,8 +346,9 @@ def forecast(
     R_c = nowcast_utils.stack_cascades(R_d, n_cascade_levels)
 
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
-    # ei oteta viimeistä, niin erilainen ka ja hajonta ei ehkä sotke?
-    # kokeillaan kuitenkin viimeistä AR:ään
+    # Mikä kolmesta kentästä pitäisi valita? Vaikuttaa koottavaan kenttäään
+    # sillä kaikilla erilaiset kskaditason statsit (std, mean) vaikka koko
+    # kenttä olisikin (0,1) jakautunut
     R_d = R_d[2]
  
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
@@ -519,10 +513,6 @@ def forecast(
         R_c[i] = autoregression.iterate_ar_model(
              R_c[i], PHI[i, :], eps=EPS_
         )
-
-    #Tuskin tarvitaan näitä kahta riviä...
-    EPS = None
-    EPS_ = None
 
     # compute the recomposed precipitation field(s) from the cascades
     # obtained from the AR(p) model(s)

@@ -35,6 +35,7 @@ def set_stats(field, stats_kwargs):
         Field with adjusted data matchin the supplied mean, std and WAR values
     """
 
+    thold = 10
     nx = field.shape[1]
     ny = field.shape[0]
     war = stats_kwargs["war"]
@@ -51,10 +52,11 @@ def set_stats(field, stats_kwargs):
         obj = len(np.where(field > x)[0]) / (nx * ny) - war
         return obj
     
-    thold = sop.bisect(war_obj_func, a, b)
-    field[field < thold] = 0
+    war_thold = sop.bisect(war_obj_func, a, b)
+    field[field < war_thold] = 0
     #Do this again after messing the stats up with WAR adjustment 
     field = ((field - field.mean()) / field.std()) * std + mean;
+    field[field < thold] = 0.0
     return field
     
 def compute_empirical_cdf(bin_edges, hist):

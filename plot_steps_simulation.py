@@ -44,23 +44,33 @@ extent[3] = 3 * ny_field / 4 * kmperpixel
 
 
 # Set noise parameters
+#TEEMU: Näillä a_1...c_1 ja a_2_c_2 parametreilla ei tule negatiivista kulmakerrointa?
 noise_method="parametric_sim"
 fft_method="numpy"
-#a_beta1 = -1.1
-#b_beta1 = -0.1077
-#c_beta1 = -0.0127
-#a_beta2 = -3.262
-#b_beta2 = -0.02521
-#c_beta2 = -0.07435  
-p_pow = np.array([18,1.0,-2.703,-3.665]) #~p0 from fftgenerators.py
+scale_break = 18
+a_1 = 1.65
+b_1 = 0.25
+c_1 = -0.013
+a_2 = 3.6
+b_2 = 0.005
+c_2 = 0  
+p_pow = np.array([scale_break,0.0,-2.0,-2.0]) #~p0 from fftgenerators.py
 ar_par = np.array([0.2,1.8,2])
 
+# Set std and WAR parameters
+a_v = 3.91
+b_v = 1.62
+c_v = -0.059
+a_war = 0.0048
+b_war = 0.0404
+c_war = -0.0004
+
 # Broken line parameters for field mean
-mu_z = 0.72 #mean of mean areal reflectivity over the simulation period
-sigma2_z = 0.19 #variance of mean areal reflectivity over the simulation period
+mu_z = 5.39 #mean of mean areal reflectivity over the simulation period
+sigma2_z = 11.53 #variance of mean areal reflectivity over the simulation period
 h_val_z = 0.94  #structure function exponent
-q_val_z = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_z = 80 #time series decorrelation time [min]
+q_val_z = 0.93  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_z = 438 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
 var_tol_z = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_z = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:
@@ -237,6 +247,8 @@ R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
+p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
+p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []        
 R.append(generate_noise(
@@ -282,9 +294,13 @@ R[~np.isfinite(R)] = -15.0
 nowcast_method = nowcasts.get_method("steps_sim")
 
 R_sim = []
-f = open("../../Local/tmp/mean_std.txt", "a")
+#f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
+    #TEEMU: näitten kai kuuluu olla negatiivisia?
+    p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
+    p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
+    #TEEMU: R_prev täytyy ottaa talteen, sillä R:ää advektoidaan nowcastissa
     R_prev = R[1].copy()
     R_new = nowcast_method(
                 R,
@@ -307,19 +323,17 @@ for i in range(n_timesteps):
     R[2] = generate_noise(
                     pp, randstate=None,fft_method=fft, domain=domain
                 )
-    stats_kwargs["mean"] = 13
-    stats_kwargs["std"] = 2
-    stats_kwargs["war"] = 0.17
-    #R_new = set_stats(R_new,stats_kwargs)
+    stats_kwargs["mean"] = r_mean[i]
+    stats_kwargs["std"] =  a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
+    stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
+    R_new = set_stats(R_new,stats_kwargs)
     R_new, metadata_clip = clip_domain(R_new, metadata, extent)
+    #R_new = transformation.dB_transform(R_new, threshold=-10.0, inverse=True)[0]
     R_sim.append(R_new)
     
-f.close()
+#f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
 animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
-# Back-transform to rain rates
-R_f = transformation.dB_transform(R_f, threshold=-10.0, inverse=True)[0]
-
 
 # Plot the ensemble mean
 R_f_mean = np.mean(R_f[:, -1, :, :], axis=0)
