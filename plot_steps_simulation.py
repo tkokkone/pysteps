@@ -333,58 +333,6 @@ for i in range(n_timesteps):
     
 #f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
+#TEEMU: precipfields.py:hyn funktioon plot_precip_field puukotettu yksiköksi dBZ
 animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
-
-# Plot the ensemble mean
-R_f_mean = np.mean(R_f[:, -1, :, :], axis=0)
-plot_precip_field(
-    R_f_mean,
-    geodata=metadata,
-    title="Ensemble mean (+ %i min)" % (n_leadtimes * timestep),
-)
-plt.show()
-
-###############################################################################
-# The mean of the ensemble displays similar properties as the S-PROG
-# forecast seen above, although the degree of smoothing also depends on
-# the ensemble size. In this sense, the S-PROG forecast can be seen as
-# the mean of an ensemble of infinite size.
-
-# Plot some of the realizations
-fig = plt.figure()
-for i in range(4):
-    ax = fig.add_subplot(221 + i)
-    ax = plot_precip_field(
-        R_f[i, -1, :, :], geodata=metadata, colorbar=False, axis="off"
-    )
-    ax.set_title("Member %02d" % i)
-plt.tight_layout()
-plt.show()
-
-###############################################################################
-# As we can see from these two members of the ensemble, the stochastic forecast
-# mantains the same variance as in the observed rainfall field.
-# STEPS also includes a stochatic perturbation of the motion field in order
-# to quantify the its uncertainty.
-
-###############################################################################
-# Finally, it is possible to derive probabilities from our ensemble forecast.
-
-# Compute exceedence probabilities for a 0.5 mm/h threshold
-P = excprob(R_f[:, -1, :, :], 0.5)
-
-# Plot the field of probabilities
-plot_precip_field(
-    P,
-    geodata=metadata,
-    ptype="prob",
-    units="mm/h",
-    probthr=0.5,
-    title="Exceedence probability (+ %i min)" % (n_leadtimes * timestep),
-)
-plt.show()
-
-# sphinx_gallery_thumbnail_number = 5
-
-
 

@@ -34,7 +34,7 @@ def plot_precip_field(
     ptype="intensity",
     ax=None,
     geodata=None,
-    units="mm/h",
+    units="dBZ",
     bbox=None,
     colorscale="pysteps",
     probthr=None,
