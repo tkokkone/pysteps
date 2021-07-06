@@ -4,36 +4,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
-from datetime import datetime
 from pprint import pprint
-from pysteps import extrapolation
-from pysteps import io, nowcasts, rcparams, noise, utils
-from pysteps.motion.lucaskanade import dense_lucaskanade
-from pysteps.postprocessing.ensemblestats import excprob
+from pysteps import nowcasts, noise, utils
 from pysteps.utils import conversion, dimension, transformation
 from pysteps.utils.dimension import clip_domain
 from pysteps.visualization import plot_precip_field, animate
 from pysteps.postprocessing.probmatching import set_stats
 
+#Initialisation of variables
 stats_kwargs = dict()
 metadata = dict()
 
-# Set simulation parameters
-n_timesteps = 100
-timestep = 6 #length of timestep between precipitation fields
-seed = 24
-nx_field = 264 #number of columns in simulated fields
-ny_field = 264 #number of rows in simulated fields
-kmperpixel = 1.0
-domain = "spatial"
-metadata["x1"] = 0.0
-metadata["y1"] = 0.0
-metadata["x2"] = nx_field * kmperpixel
-metadata["y2"] = ny_field * kmperpixel
-metadata["xpixelsize"] = kmperpixel
-metadata["ypixelsize"] = kmperpixel
+# Set general simulation parameters
+n_timesteps = 100 #number of timesteps
+timestep = 6 #timestep length
+seed1 = 124 #seed number for generation of the first precipitation field
+seed2 = 234 #seed number for generation of the first innovation field
+nx_field = 264 #number of columns in precip fields
+ny_field = 264 #number of rows in precip fields
+kmperpixel = 1.0 #grid resolution
+domain = "spatial" #spatial or spectral
+metadata["x1"] = 0.0 #x-coordinate of lower left 
+metadata["y1"] = 0.0 #y-coordinate of lower left
+metadata["x2"] = nx_field * kmperpixel #x-coordinate of upper right
+metadata["y2"] = ny_field * kmperpixel #y-coordinate of upper right
+metadata["xpixelsize"] = kmperpixel #grid resolution
+metadata["ypixelsize"] = kmperpixel #grid resolution
 metadata["zerovalue"] = 0.0
-metadata["yorigin"] = "lower"
+metadata["yorigin"] = "lower" #location of grid origin (y), lower or upper
 
 # bounding box coordinates for the extracted middel part of the entire domain
 extent = [0,0,0,0]
@@ -43,21 +41,23 @@ extent[2] = ny_field / 4 * kmperpixel
 extent[3] = 3 * ny_field / 4 * kmperpixel
 
 
-# Set noise parameters
+# Set power filter parameters
 #TEEMU: Näillä a_1...c_1 ja a_2_c_2 parametreilla ei tule negatiivista kulmakerrointa?
-noise_method="parametric_sim"
+noise_method="parametric_sim" #where power filter pareameters given not estimated 
 fft_method="numpy"
-scale_break = 18
-a_1 = 1.65
+scale_break = 18 #scale break
+a_1 = 1.65 #a_1...c_2 see Seed et al. 2014
 b_1 = 0.25
 c_1 = -0.013
 a_2 = 3.6
 b_2 = 0.005
 c_2 = 0  
-p_pow = np.array([scale_break,0.0,-2.0,-2.0]) #~p0 from fftgenerators.py
-ar_par = np.array([0.2,1.8,2])
+p_pow = np.array([scale_break,0.0,-2.0,-2.0]) #initialization 
 
-# Set std and WAR parameters
+# Initialise AR parameter array, Seed et al. 2014 eqs. 9-11 
+ar_par = np.array([0.2,1.8,2]) #order: at, bt, ct
+
+# Set std and WAR parameters, Seed et al. eq. 4
 a_v = 3.91
 b_v = 1.62
 c_v = -0.059
@@ -95,7 +95,9 @@ no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
-extrap_method = "semilagrangian_wrap"   
+# Set method for advection    
+extrap_method = "semilagrangian_wrap"
+   
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
     """A function to create multiplicative broken lines
@@ -235,9 +237,11 @@ x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
 xy_coords = np.stack([x_values, y_values])
 
 ###############################################################################
-# Create the first precipitation fields, the nuber is determined by the order of
-# the ar process, in this example it is two. Maybe later the second one should
-# be AR(1) of the first one, but is ignored for now
+# Create the first two precipitation fields, the nuber is determined by the order of
+# the ar process, in this example it is two. The second one is a copy of the first
+# one. The first velocity magnitude is zero.
+
+v_mag[0] = 0.0
 R_ini = []
 R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
@@ -250,17 +254,15 @@ noise_kwargs=dict()
 p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
 p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
-R = []        
+R = []
+R_0 = generate_noise(
+                    pp, randstate=None,seed=seed1,fft_method=fft, domain=domain
+                )       
+R.append(R_0)
+R.append(R_0)
+# Generate the first innovation field and append it as the last term in R
 R.append(generate_noise(
-                    pp, randstate=None,seed=110,fft_method=fft, domain=domain
-                ))
-extrapolator_method = extrapolation.get_method(extrap_method)
-extrap_kwargs = dict()
-extrap_kwargs["xy_coords"] = xy_coords
-extrap_kwargs["allow_nonfinite_values"] = True
-R.append(extrapolator_method(R[0], V, 1, "min", **extrap_kwargs)[-1])
-R.append(generate_noise(
-                    pp, randstate=None, seed=2345,fft_method=fft, domain=domain
+                    pp, randstate=None, seed=seed2,fft_method=fft, domain=domain
                 ))
 R = np.concatenate([R_[None, :, :] for R_ in R])   
 
@@ -269,12 +271,9 @@ R = np.concatenate([R_[None, :, :] for R_ in R])
 plot_precip_field(R[-1, :, :])
 plt.show()
 
-# Log-transform the data to unit of dBR, set the threshold to 0.1 mm/h,
-# set the fill value to -15 dBR
-# TEEMU: Missä yksikössä simuloimme? Kun luomme kohinan, niin onko mm vai dbZ?
-#R, metadata = transformation.dB_transform(R, metadata, threshold=0.1, zerovalue=-15.0)
-
 # Set missing values with the fill value
+# TEEMU: probably not needed, how can there be nonfinite values in generated
+# fields?
 R[~np.isfinite(R)] = -15.0
 
 # Nicely print the metadata
@@ -282,15 +281,8 @@ R[~np.isfinite(R)] = -15.0
 
 
 ###############################################################################
-# Stochastic nowcast with STEPS
-# -----------------------------
-#
-# The S-PROG approach is extended to include a stochastic term which represents
-# the variance associated to the unpredictable development of precipitation. This
-# approach is known as STEPS (short-term ensemble prediction system).
+# Simulation loop with STEPS
 
-# The STEPS nowcast
-# TEEMU: STEPS simulation. Mitä argumentteja tarvitaan?
 nowcast_method = nowcasts.get_method("steps_sim")
 
 R_sim = []
@@ -300,7 +292,7 @@ for i in range(n_timesteps):
     p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
     p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
-    #TEEMU: R_prev täytyy ottaa talteen, sillä R:ää advektoidaan nowcastissa
+    #R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
     R_new = nowcast_method(
                 R,
@@ -314,7 +306,6 @@ for i in range(n_timesteps):
                 noise_method="parametric_sim",
                 vel_pert_method="bps",
                 mask_method="incremental",
-                seed=seed,
     )
 
     #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
