@@ -349,7 +349,7 @@ def forecast(
     # Mikä kolmesta kentästä pitäisi valita? Vaikuttaa koottavaan kenttäään
     # sillä kaikilla erilaiset kskaditason statsit (std, mean) vaikka koko
     # kenttä olisikin (0,1) jakautunut
-    R_d = R_d[2]
+    R_d = R_d[1]
  
     # TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
     # a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina

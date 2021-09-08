@@ -3,9 +3,10 @@ name: pysteps_dev
 channels:
   - conda-forge
   - defaults
-dependencies:
-  - python>=3.6
-  - pip
+    dependencies:
+      - python>=3.6
+      - gdal
+      - pip
   - jsmin
   - jsonschema
   - matplotlib

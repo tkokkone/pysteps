@@ -10,6 +10,7 @@ from pysteps.utils import conversion, dimension, transformation
 from pysteps.utils.dimension import clip_domain
 from pysteps.visualization import plot_precip_field, animate
 from pysteps.postprocessing.probmatching import set_stats
+from pysteps import extrapolation
 
 #Initialisation of variables
 stats_kwargs = dict()
@@ -235,6 +236,8 @@ V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
 xy_coords = np.stack([x_values, y_values])
+vx = V[0]
+vy = V[1]
 
 ###############################################################################
 # Create the first two precipitation fields, the nuber is determined by the order of
@@ -259,7 +262,12 @@ R_0 = generate_noise(
                     pp, randstate=None,seed=seed1,fft_method=fft, domain=domain
                 )       
 R.append(R_0)
-R.append(R_0)
+extrapolator_method = extrapolation.get_method(extrap_method)
+extrap_kwargs = dict()
+extrap_kwargs["xy_coords"] = xy_coords
+extrap_kwargs["allow_nonfinite_values"] = True
+R_1 = extrapolator_method(R[0], V, 1, "min", **extrap_kwargs)[-1]
+R.append(R_1)
 # Generate the first innovation field and append it as the last term in R
 R.append(generate_noise(
                     pp, randstate=None, seed=seed2,fft_method=fft, domain=domain
@@ -318,7 +326,7 @@ for i in range(n_timesteps):
     stats_kwargs["std"] =  a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
     stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
     R_new = set_stats(R_new,stats_kwargs)
-    R_new, metadata_clip = clip_domain(R_new, metadata, extent)
+    #R_new, metadata_clip = clip_domain(R_new, metadata, extent)
     #R_new = transformation.dB_transform(R_new, threshold=-10.0, inverse=True)[0]
     R_sim.append(R_new)
     
