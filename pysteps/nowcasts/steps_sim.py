@@ -28,6 +28,7 @@ def forecast(
     R,
     vx,
     vy,
+    PHI,
     ar_par,
     n_cascade_levels=6,
     R_thr=None,
