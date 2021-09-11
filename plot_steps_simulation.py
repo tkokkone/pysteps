@@ -11,12 +11,16 @@ from pysteps.utils.dimension import clip_domain
 from pysteps.visualization import plot_precip_field, animate
 from pysteps.postprocessing.probmatching import set_stats
 from pysteps import extrapolation
+from pysteps.nowcasts import utils as nowcast_utils
+from pysteps.timeseries import autoregression
 
 #Initialisation of variables
 stats_kwargs = dict()
 metadata = dict()
 
 # Set general simulation parameters
+n_cascade_levels = 6
+ar_order = 2
 n_timesteps = 100 #number of timesteps
 timestep = 6 #timestep length
 seed1 = 124 #seed number for generation of the first precipitation field
@@ -33,6 +37,10 @@ metadata["xpixelsize"] = kmperpixel #grid resolution
 metadata["ypixelsize"] = kmperpixel #grid resolution
 metadata["zerovalue"] = 0.0
 metadata["yorigin"] = "lower" #location of grid origin (y), lower or upper
+scale_ratio = (2.0 / max(nx_field,ny_field)) ** (1.0/(n_cascade_levels-1))
+while scale_ratio < 0.42:
+    n_cascade_levels += 1
+    scale_ratio = (2.0 / max(nx_field,ny_field)) ** (1.0/(n_cascade_levels-1))
 
 # bounding box coordinates for the extracted middel part of the entire domain
 extent = [0,0,0,0]
@@ -209,6 +217,34 @@ def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs
             print(str(noAccepted_BLs) + ". not accepted.")
     
     return blines_final
+
+# TEEMU: Muutettu autokorrealatiokertoimien laskenta käyttäen parametreja
+# a-c (Seed at al., 2014, kaavat 9-11). Parametrit annetaan argumentteina
+# forecast -funktioon.
+# compute lag-l temporal autocorrelation coefficients for each cascade level
+GAMMA = np.empty((n_cascade_levels, ar_order))
+L_k = max(nx_field,ny_field) * kmperpixel
+for i in range(n_cascade_levels):
+    tau_k = ar_par[0] * L_k ** ar_par[1]
+    GAMMA[i,0] = np.exp(-timestep/tau_k)
+    GAMMA[i,1] = GAMMA[i,0] ** ar_par[2]
+    L_k *= scale_ratio 
+
+nowcast_utils.print_corrcoefs(GAMMA)
+
+if ar_order == 2:
+    # adjust the lag-2 correlation coefficient to ensure that the AR(p)
+    # process is stationary
+    for i in range(n_cascade_levels):
+        GAMMA[i, 1] = autoregression.adjust_lag2_corrcoef2(GAMMA[i, 0], GAMMA[i, 1])
+
+# estimate the parameters of the AR(p) model from the autocorrelation
+# coefficients
+PHI = np.empty((n_cascade_levels, ar_order + 1))
+for i in range(n_cascade_levels):
+    PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
+       
+nowcast_utils.print_ar_params(PHI)
 
 # Create the field mean for the requested number of simulation time steps
 r_mean = create_broken_lines(mu_z, sigma2_z, h_val_z, q_val_z,
