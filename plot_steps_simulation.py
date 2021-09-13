@@ -21,9 +21,9 @@ metadata = dict()
 # Set general simulation parameters
 n_cascade_levels = 6
 ar_order = 2
-n_timesteps = 100 #number of timesteps
+n_timesteps = 150 #number of timesteps
 timestep = 6 #timestep length
-seed1 = 124 #seed number for generation of the first precipitation field
+seed1 = 1214 #seed number for generation of the first precipitation field
 seed2 = 234 #seed number for generation of the first innovation field
 nx_field = 264 #number of columns in precip fields
 ny_field = 264 #number of rows in precip fields
