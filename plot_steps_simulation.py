@@ -45,14 +45,15 @@ extent[3] = 3 * ny_field / 4 * kmperpixel
 #TEEMU: Näillä a_1...c_1 ja a_2_c_2 parametreilla ei tule negatiivista kulmakerrointa?
 noise_method="parametric_sim" #where power filter pareameters given not estimated 
 fft_method="numpy"
-scale_break = 18 #scale break
+scale_break = 18 #scale break in km
+scale_break_wn = np.log(nx_field/scale_break)
 a_1 = 1.65 #a_1...c_2 see Seed et al. 2014
 b_1 = 0.25
 c_1 = -0.013
 a_2 = 3.6
 b_2 = 0.005
 c_2 = 0  
-p_pow = np.array([scale_break,0.0,-2.0,-2.0]) #initialization 
+p_pow = np.array([scale_break_wn,0.0,-2.0,-2.0]) #initialization 
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11 
 ar_par = np.array([0.2,1.8,2]) #order: at, bt, ct
@@ -230,7 +231,7 @@ vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
 #Tämä vain kokeilua varten, V joka paikassa 1 tai 0
-V = [np.ones((ny_field, nx_field)),np.ones((ny_field, nx_field))]
+V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
 V = np.concatenate([V_[None, :, :] for V_ in V])
 
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
@@ -309,6 +310,8 @@ for i in range(n_timesteps):
     )
 
     #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
+    Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_new)
+    w0_km = nx_field / np.exp(Fp["pars"][0])
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
