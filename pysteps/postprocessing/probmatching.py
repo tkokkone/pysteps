@@ -42,8 +42,8 @@ def set_stats(field, stats_kwargs):
     mean = stats_kwargs["mean"]
     std = stats_kwargs["std"]
     #TODO: link bounds a and b to mean and std
-    a = 0 
-    b = 50
+    a = -100
+    b = 100
     
     field = ((field - field.mean()) / field.std()) * std + mean;
     

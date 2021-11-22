@@ -380,9 +380,9 @@ def forecast(
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
     
-    PHI[:,0] = 0
-    PHI[:,1] = 0
-    PHI[:,2] = 1    
+    # PHI[:,0] = 0
+    # PHI[:,1] = 0
+    # PHI[:,2] = 1    
     nowcast_utils.print_ar_params(PHI)
 
     # TEEMU: copy the last element in R_c to EPS
