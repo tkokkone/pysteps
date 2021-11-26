@@ -80,6 +80,9 @@ def initialize_param_2d_fft_filter(field, **kwargs):
         A string or a (function,kwargs) tuple defining the FFT method to use
         (see "FFT methods" in :py:func:`pysteps.utils.interface.get_method`).
         Defaults to "numpy".
+    scale_break: double
+        x coordinate of scale break not optimized, so it must be supplied as 
+        wave number
 
     Returns
     -------
@@ -106,6 +109,7 @@ def initialize_param_2d_fft_filter(field, **kwargs):
     weighted = kwargs.get("weighted", False)
     rm_rdisc = kwargs.get("rm_rdisc", False)
     fft = kwargs.get("fft_method", "numpy")
+    scale_break = kwargs.get("scale_break", 2)
     if type(fft) == str:
         fft_shape = field.shape if len(field.shape) == 2 else field.shape[1:]
         fft = utils.get_method(fft, shape=fft_shape)
@@ -157,8 +161,9 @@ def initialize_param_2d_fft_filter(field, **kwargs):
         beta = p0[0]
 
         # create the piecewise function with two spectral slopes beta1 and beta2
-        # and scaling break x0
-        def piecewise_linear(x, x0, y0, beta1, beta2):
+        # and scaling break x0, scaling berak not optimized
+        x0 = scale_break
+        def piecewise_linear(x, y0, beta1, beta2):
             return np.piecewise(
                 x,
                 [x < x0, x >= x0],
@@ -168,11 +173,12 @@ def initialize_param_2d_fft_filter(field, **kwargs):
                 ],
             )
 
-        # fit the two betas and the scaling break
-        p0 = [2.0, 0, beta, beta]  # first guess
+        # fit the two betas BUT NOT the scaling break, y0 still needs
+        # to be optimized
+        p0 = [0, beta, beta]  # first guess
         bounds = (
-            [2.0, 0, -4, -4],
-            [5.0, 20, -1.0, -1.0],
+            [0, -4, -4],
+            [20, -1.0, -1.0],
         )  # TODO: provide better bounds
         if weighted:
             p, e = optimize.curve_fit(
@@ -193,7 +199,7 @@ def initialize_param_2d_fft_filter(field, **kwargs):
         R = np.sqrt(XC * XC + YC * YC)
         R = fft.fftshift(R)
         pf = p.copy()
-        pf[2:] = pf[2:] / 2
+        pf[1:] = pf[1:] / 2
         F = np.exp(piecewise_linear(np.log(R), *pf))
         F[~np.isfinite(F)] = 1
 

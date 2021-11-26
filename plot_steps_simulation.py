@@ -20,8 +20,8 @@ n_timesteps = 100 #number of timesteps
 timestep = 6 #timestep length
 seed1 = 124 #seed number for generation of the first precipitation field
 seed2 = 234 #seed number for generation of the first innovation field
-nx_field = 264 #number of columns in precip fields
-ny_field = 264 #number of rows in precip fields
+nx_field = 1024 #number of columns in precip fields
+ny_field = 1024 #number of rows in precip fields
 kmperpixel = 1.0 #grid resolution
 domain = "spatial" #spatial or spectral
 metadata["x1"] = 0.0 #x-coordinate of lower left 
@@ -53,7 +53,7 @@ c_1 = -0.013
 a_2 = 3.6
 b_2 = 0.005
 c_2 = 0  
-p_pow = np.array([scale_break_wn,0.0,-2.0,-2.0]) #initialization 
+p_pow = np.array([scale_break_wn,0,-2.0,-2.0]) #initialization 
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11 
 ar_par = np.array([0.2,1.8,2]) #order: at, bt, ct
@@ -245,20 +245,23 @@ xy_coords = np.stack([x_values, y_values])
 v_mag[0] = 0.0
 R_ini = []
 R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
-R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
+#R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 # Change the type of R to align with pySTEPS
 R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
-p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
-p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
+#p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
+#p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
+p_pow[2] = -2.5
+p_pow[3] = -2.5
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []
 R_0 = generate_noise(
                     pp, randstate=None,seed=seed1,fft_method=fft, domain=domain
-                )       
+                )
+Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_0, scale_break=scale_break_wn)       
 R.append(R_0)
 R.append(R_0)
 # Generate the first innovation field and append it as the last term in R
@@ -287,11 +290,20 @@ R[~np.isfinite(R)] = -15.0
 nowcast_method = nowcasts.get_method("steps_sim")
 
 R_sim = []
+beta1_in = []
+beta2_in = []
+scaleb_in = []
+beta1_out = []
+beta2_out = []
+scaleb_out = []
 #f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
     #TEEMU: näitten kai kuuluu olla negatiivisia?
     p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
     p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
+    beta1_in.append(p_pow[2])
+    beta2_in.append(p_pow[3])
+    scaleb_in.append(scale_break)
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     #R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
@@ -310,8 +322,11 @@ for i in range(n_timesteps):
     )
 
     #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
-    Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_new)
-    w0_km = nx_field / np.exp(Fp["pars"][0])
+    Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_new, scale_break=scale_break_wn)
+    w0_km = nx_field / np.exp(scale_break_wn)
+    beta1_out.append(Fp["pars"][1])
+    beta2_out.append(Fp["pars"][2])
+    scaleb_out.append(w0_km)
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
