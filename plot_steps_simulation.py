@@ -20,8 +20,8 @@ n_timesteps = 10 #number of timesteps
 timestep = 6 #timestep length
 seed1 = 124 #seed number for generation of the first precipitation field
 seed2 = 234 #seed number for generation of the first innovation field
-nx_field = 256 #number of columns in precip fields
-ny_field = 256 #number of rows in precip fields
+nx_field = 1024 #number of columns in precip fields
+ny_field = 1024 #number of rows in precip fields
 kmperpixel = 1.0 #grid resolution
 domain = "spatial" #spatial or spectral
 metadata["x1"] = 0.0 #x-coordinate of lower left 
@@ -98,6 +98,20 @@ mar_tol_vdir = 1 #acceptable value for first and last elements of the final brok
 
 # Set method for advection    
 extrap_method = "semilagrangian_wrap"
+
+R_sim = []
+mean_in = []
+std_in = []
+war_in = []
+beta1_in = []
+beta2_in = []
+scaleb_in = []
+mean_out = []
+std_out = []
+war_out = []
+beta1_out = []
+beta2_out = []
+scaleb_out = []
    
 # FUNCTION TO CREATE BROKEN LINES
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
@@ -265,6 +279,8 @@ Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_0, scale_break=scale_b
 R.append(R_0)
 R.append(R_0)
 # Generate the first innovation field and append it as the last term in R
+beta1_in.append(p_pow[2])
+beta2_in.append(p_pow[3])
 R.append(generate_noise(
                     pp, randstate=None, seed=seed2,fft_method=fft, domain=domain
                 ))
@@ -289,21 +305,11 @@ R[~np.isfinite(R)] = -15.0
 
 nowcast_method = nowcasts.get_method("steps_sim")
 
-R_sim = []
-beta1_in = []
-beta2_in = []
-scaleb_in = []
-beta1_out = []
-beta2_out = []
-scaleb_out = []
 #f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
     #TEEMU: näitten kai kuuluu olla negatiivisia?
     p_pow[2] = -2.5 #- (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
     p_pow[3] = -2.5 #- (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
-    beta1_in.append(p_pow[2])
-    beta2_in.append(p_pow[3])
-    scaleb_in.append(scale_break)
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     #R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
@@ -336,9 +342,17 @@ for i in range(n_timesteps):
     stats_kwargs["std"] =  a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
     stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
     R_new = set_stats(R_new,stats_kwargs)
-    R_new, metadata_clip = clip_domain(R_new, metadata, extent)
+    mean_out.append(R_new.mean())
+    std_out.append(R_new.std())
+    #R_new, metadata_clip = clip_domain(R_new, metadata, extent)
     #R_new = transformation.dB_transform(R_new, threshold=-10.0, inverse=True)[0]
     R_sim.append(R_new)
+    mean_in.append(stats_kwargs["mean"])
+    std_in.append(stats_kwargs["std"])
+    war_in.append(stats_kwargs["war"])
+    beta1_in.append(p_pow[2])
+    beta2_in.append(p_pow[3])
+    scaleb_in.append(scale_break)
     
 #f.close()
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
