@@ -16,12 +16,12 @@ stats_kwargs = dict()
 metadata = dict()
 
 # Set general simulation parameters
-n_timesteps = 100 #number of timesteps
+n_timesteps = 10 #number of timesteps
 timestep = 6 #timestep length
 seed1 = 124 #seed number for generation of the first precipitation field
 seed2 = 234 #seed number for generation of the first innovation field
-nx_field = 1024 #number of columns in precip fields
-ny_field = 1024 #number of rows in precip fields
+nx_field = 256 #number of columns in precip fields
+ny_field = 256 #number of rows in precip fields
 kmperpixel = 1.0 #grid resolution
 domain = "spatial" #spatial or spectral
 metadata["x1"] = 0.0 #x-coordinate of lower left 
@@ -299,8 +299,8 @@ scaleb_out = []
 #f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
     #TEEMU: näitten kai kuuluu olla negatiivisia?
-    p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
-    p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
+    p_pow[2] = -2.5 #- (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
+    p_pow[3] = -2.5 #- (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
     beta1_in.append(p_pow[2])
     beta2_in.append(p_pow[3])
     scaleb_in.append(scale_break)

@@ -223,8 +223,8 @@ def _plot_field(
     if (x_grid is None) or (y_grid is None):
         im = ax.imshow(
             precip,
-            cmap=cmap,
-            norm=norm,
+            cmap='plasma',
+            #norm=norm,
             extent=extent,
             interpolation="nearest",
             origin=origin,
@@ -235,8 +235,8 @@ def _plot_field(
             x_grid,
             y_grid,
             precip,
-            cmap=cmap,
-            norm=norm,
+            cmap='plasma',
+            #norm=norm,
             zorder=10,
         )
 
