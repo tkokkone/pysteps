@@ -35,15 +35,16 @@ def set_stats(field, stats_kwargs):
         Field with adjusted data matchin the supplied mean, std and WAR values
     """
 
-    thold = 10
+    thold = 8.1830486304816077 #aiemmin 10
+    #8.1830486304816077
     nx = field.shape[1]
     ny = field.shape[0]
     war = stats_kwargs["war"]
     mean = stats_kwargs["mean"]
     std = stats_kwargs["std"]
     #TODO: link bounds a and b to mean and std
-    a = -100
-    b = 100
+    a = -500
+    b = 500
     
     field = ((field - field.mean()) / field.std()) * std + mean;
     
@@ -53,10 +54,17 @@ def set_stats(field, stats_kwargs):
         return obj
     
     war_thold = sop.bisect(war_obj_func, a, b)
-    field[field < war_thold] = 0
+    field[field < war_thold] = 3.1830486304816077 #aiemmin 0
+    #riville 57 parametriestimointia vastaavaa 8.18-5
+    
     #Do this again after messing the stats up with WAR adjustment 
+    
     field = ((field - field.mean()) / field.std()) * std + mean;
-    field[field < thold] = 0.0
+    #pitäiskö koskea vain sataviin soluihin rivillä 58
+    
+    field[field < thold] = 3.1830486304816077 #aiemmin 0.0
+    # testimielessä kommentoi rivi 65 pois!
+    #riville 65 parametriestimointia vastaavaa 8.18-5
     return field
     
 def compute_empirical_cdf(bin_edges, hist):

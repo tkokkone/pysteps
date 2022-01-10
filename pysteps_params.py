@@ -190,7 +190,7 @@ plt.plot(std_ts)
 oflow_method = pysteps.motion.get_method("LK") #method: Lukas-Kanade
 
 #Loop to calculate average x- and y-components of the advection, as well as magnitude and direction in xy-dir
-#run_start_2 = time.perf_counter()
+# run_start_2 = time.perf_counter()
 Vx = np.zeros(len(R)-1)
 Vy = np.zeros(len(R)-1)
 Vxy = np.zeros(len(R)-1)

@@ -34,7 +34,7 @@ metadata = dict()
 # Set general simulation parameters
 n_cascade_levels = 6
 ar_order = 2
-n_timesteps = 135 #number of timesteps
+n_timesteps = 10 #number of timesteps
 timestep = 5 #timestep length
 seed1 = 124 #seed number for generation of the first precipitation field
 seed2 = 234 #seed number for generation of the first innovation field
@@ -435,6 +435,11 @@ for i in range(n_timesteps):
     p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[i] + c_w0 * r_mean[i] ** 2)) #scale break
     p_pow[2] = (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2) #beta1
     p_pow[3] = (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2) #beta2
+    
+    if i == 5:
+        p_pow[2] = -1.4
+        p_pow[3] = -3
+    
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     #R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
@@ -453,7 +458,9 @@ for i in range(n_timesteps):
     )
 
     #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
+      
     Fp = noise.fftgenerators.initialize_param_2d_fft_filter(R_new)
+    
     w0_km = nx_field / np.exp(Fp["pars"][0])
     R[0] = R_prev
     
@@ -490,16 +497,18 @@ animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
 #Plot timeseries of simulated beta1, beta2 and scale break
 #Beta1
 plt.figure()
-plt.plot(p_pow_b1[:,0])
-plt.plot(beta1_sim[:,0])
+plt.plot(p_pow_b1[:10,0])
+plt.plot(beta1_sim[:10,0])
+
 #Beta2
 plt.figure()
-plt.plot(p_pow_b2[:,0])
-plt.plot(beta2_sim[:,0])
+plt.plot(p_pow_b2[:10,0])
+plt.plot(beta2_sim[:10,0])
+
 #Scale break
 plt.figure()
-plt.plot(p_pow_w0[:,0])
-plt.plot(w0_sim[:,0])
+plt.plot(p_pow_w0[:10,0])
+plt.plot(w0_sim[:10,0])
 
 # # #Mean of timeseries of simulated beta1, beta2 and scale break
 # all_means = np.zeros((6,2))
@@ -540,4 +549,80 @@ plt.plot(w0_sim[:,0])
 # all_means[4,1] = np.mean(ts_std)
 # all_means[5,0] = np.mean(data_tss[2,:])
 # all_means[5,1] = np.mean(ts_war)
+
+##############################################################################
+
+#Plot the observed 1D power spectrum and the model
+#The parametric model uses a piece-wise linear function with two spectral slopes (beta1 and beta2) and one breaking point
+#https://pysteps.readthedocs.io/en/latest/auto_examples/plot_noise_generators.html
+
+from pysteps.visualization import plot_spectrum1d
+from pysteps.utils import rapsd
+
+# # Fit the parametric PSD to the observation
+# Fp = initialize_param_2d_fft_filter(R)
+
+# Compute the observed and fitted 1D PSD
+L = np.max(Fp["input_shape"])
+if L % 2 == 1:
+    wn = np.arange(0, int(L / 2) + 1)
+else:
+    wn = np.arange(0, int(L / 2))
+R_, freq = rapsd(R[2], fft_method=np.fft, return_freq=True)
+f = np.exp(Fp["model"](np.log(wn), *Fp["pars"]))
+
+# Extract the scaling break in km, beta1 and beta2
+w0 = L / np.exp(Fp["pars"][0])
+b1 = Fp["pars"][2]
+b2 = Fp["pars"][3]
+
+# len(R_)
+# len(freq)
+# len(f)
+
+fig, ax = plt.subplots()
+plot_scales = [256, 128, 64, 32, 16, 8, 4, 2]
+plot_spectrum1d(
+    freq,
+    R_,
+    x_units="km",
+    y_units="dBZ",
+    color="k",
+    ax=ax,
+    label="Observed",
+    wavelength_ticks=plot_scales,
+)
+plot_spectrum1d(
+    freq[:-1],
+    f,
+    x_units="km",
+    y_units="dBZ",
+    color="r",
+    ax=ax,
+    label="Fit",
+    wavelength_ticks=plot_scales,
+)
+plt.legend()
+ax.set_title(
+    "Radially averaged log-power spectrum of R\n"
+    r"$\omega_0=%.0f km, \beta_1=%.1f, \beta_2=%.1f$" % (w0, b1, b2)
+)
+plt.show()
+
+# ##############################################################################
+
+# import scipy.stats as sp
+
+# freq_km = np.exp(freq)
+
+# slope_b1, intercept_b1, r_value_b1, p_value_b1, std_err_b1 = sp.linregress(10 * np.log10(freq[1:round(w0)]), 10 * np.log10(R_[1:round(w0)]))
+# y_values_b1 = slope_b1 * 10 * np.log10(R_[1:round(w0)]) + intercept_b1
+
+# slope_b2, intercept_b2, r_value_b2, p_value_b2, std_err_b2 = sp.linregress(10 * np.log10(freq[round(w0):len(R_)]), 10 * np.log10(R_[round(w0):len(R_)]))
+# y_values_b2 = slope_b2 * 10 * np.log10(R_[round(w0):len(R_)]) + intercept_b2
+
+# plt.figure()
+# plt.plot(10 * np.log10(freq[1:len(freq)]), 10 * np.log10(R_[1:len(R_)]))
+# plt.plot(10 * np.log10(freq[1:round(w0)]), y_values_b1)
+# plt.plot(10 * np.log10(freq[round(w0):len(freq)]), y_values_b2)
 
