@@ -32,6 +32,8 @@ metadata["xpixelsize"] = kmperpixel #grid resolution
 metadata["ypixelsize"] = kmperpixel #grid resolution
 metadata["zerovalue"] = 0.0
 metadata["yorigin"] = "lower" #location of grid origin (y), lower or upper
+war_thold = 5
+rain_zero_value = 0
 
 # bounding box coordinates for the extracted middel part of the entire domain
 extent = [0,0,0,0]
@@ -341,9 +343,14 @@ for i in range(n_timesteps):
     stats_kwargs["mean"] = r_mean[i]
     stats_kwargs["std"] =  a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
     stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
+    stats_kwargs["war_thold"] = war_thold
+    stats_kwargs["rain_zero_value"] = rain_zero_value
     R_new = set_stats(R_new,stats_kwargs)
+    war = len(np.where(R_new > war_thold)[0]) / (nx_field * ny_field)
     mean_out.append(R_new.mean())
     std_out.append(R_new.std())
+    war_out.append(war)
+    
     #R_new, metadata_clip = clip_domain(R_new, metadata, extent)
     #R_new = transformation.dB_transform(R_new, threshold=-10.0, inverse=True)[0]
     R_sim.append(R_new)
@@ -358,4 +365,10 @@ for i in range(n_timesteps):
 R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
 #TEEMU: precipfields.py:hyn funktioon plot_precip_field puukotettu yksiköksi dBZ
 animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
+
+#x_data = np.arange(0,len(mean_in))
+# plt.plot(x_data,war_in,x_data, war_out)
+# plt.figure()
+# plt.plot(x_data,std_in,x_data, std_out)
+# plt.plot(x_data,beta1_in[0:-1],x_data, beta1_out) 
 
