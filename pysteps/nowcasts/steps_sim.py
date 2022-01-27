@@ -347,7 +347,7 @@ def forecast(
 
     # TEEMU: Tähän rakennetaan kaskadeista uusi laskettu kenttä (recompose)
     # Mikä kolmesta kentästä pitäisi valita? Vaikuttaa koottavaan kenttäään
-    # sillä kaikilla erilaiset kskaditason statsit (std, mean) vaikka koko
+    # sillä kaikilla erilaiset kaskaditason statsit (std, mean) vaikka koko
     # kenttä olisikin (0,1) jakautunut
     R_d = R_d[2]
  
@@ -380,9 +380,10 @@ def forecast(
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
     
-    PHI[:,0] = 0
-    PHI[:,1] = 0
-    PHI[:,2] = 1    
+    # Next three lines to set AR inactive
+    #PHI[:,0] = 0
+    #PHI[:,1] = 0
+    #PHI[:,2] = 1    
     nowcast_utils.print_ar_params(PHI)
 
     # TEEMU: copy the last element in R_c to EPS

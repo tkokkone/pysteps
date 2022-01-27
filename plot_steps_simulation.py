@@ -16,12 +16,12 @@ stats_kwargs = dict()
 metadata = dict()
 
 # Set general simulation parameters
-n_timesteps = 10 #number of timesteps
+n_timesteps = 1000 #number of timesteps
 timestep = 6 #timestep length
-seed1 = 124 #seed number for generation of the first precipitation field
-seed2 = 234 #seed number for generation of the first innovation field
-nx_field = 1024 #number of columns in precip fields
-ny_field = 1024 #number of rows in precip fields
+seed1 = 124 #seed number 1
+seed2 = 234 #seed number 2
+nx_field = 256 #number of columns in precip fields
+ny_field = 256 #number of rows in precip fields
 kmperpixel = 1.0 #grid resolution
 domain = "spatial" #spatial or spectral
 metadata["x1"] = 0.0 #x-coordinate of lower left 
@@ -30,10 +30,10 @@ metadata["x2"] = nx_field * kmperpixel #x-coordinate of upper right
 metadata["y2"] = ny_field * kmperpixel #y-coordinate of upper right
 metadata["xpixelsize"] = kmperpixel #grid resolution
 metadata["ypixelsize"] = kmperpixel #grid resolution
-metadata["zerovalue"] = 0.0
+metadata["zerovalue"] = 0.0 #maybe not in use?
 metadata["yorigin"] = "lower" #location of grid origin (y), lower or upper
-war_thold = 5
-rain_zero_value = 0
+war_thold = 5 #below this value no rain
+rain_zero_value = 3 #no rain pixels assigned with this value
 
 # bounding box coordinates for the extracted middel part of the entire domain
 extent = [0,0,0,0]
@@ -44,44 +44,43 @@ extent[3] = 3 * ny_field / 4 * kmperpixel
 
 
 # Set power filter parameters
-#TEEMU: Näillä a_1...c_1 ja a_2_c_2 parametreilla ei tule negatiivista kulmakerrointa?
 noise_method="parametric_sim" #where power filter pareameters given not estimated 
 fft_method="numpy"
 scale_break = 18 #scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
-a_1 = 1.65 #a_1...c_2 see Seed et al. 2014
-b_1 = 0.25
-c_1 = -0.013
-a_2 = 3.6
-b_2 = 0.005
-c_2 = 0  
+a_1 = 1.550131395886149 #OSAPOL, provided by Ville
+b_1 = 0.021172968449359647
+c_1 = 0.0019264357240685506
+a_2 = 3.582820233684395
+b_2 = -0.08242383889918288
+c_2 = 0.006099165690311373  
 p_pow = np.array([scale_break_wn,0,-2.0,-2.0]) #initialization 
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11 
 ar_par = np.array([0.2,1.8,2]) #order: at, bt, ct
 
 # Set std and WAR parameters, Seed et al. eq. 4
-a_v = 3.91
-b_v = 1.62
-c_v = -0.059
-a_war = 0.0048
-b_war = 0.0404
-c_war = -0.0004
+a_v = -5.455962629592088
+b_v = 3.0216340404003423
+c_v = -0.1343959503091776
+a_war = -0.186998012300573
+b_war = 0.06138291149255198
+c_war = -0.0011463266799173295
 
 # Broken line parameters for field mean
-mu_z = 5.39 #mean of mean areal reflectivity over the simulation period
-sigma2_z = 11.53 #variance of mean areal reflectivity over the simulation period
-h_val_z = 0.94  #structure function exponent
-q_val_z = 0.93  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_z = 438 #time series decorrelation time [min]
+mu_z = 7.20843781233898 #mean of mean areal reflectivity over the simulation period
+sigma2_z = 5.50191939501378 #variance of mean areal reflectivity over the simulation period
+h_val_z = 0.939519653123402  #structure function exponent
+q_val_z = 0.8  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_z = 100 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
 var_tol_z = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_z = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:
 
 # Broken line parameters for velocity magnitude
-mu_vmag = 2.39 #mean of mean areal reflectivity over the simulation period
-sigma2_vmag = 0.14 #variance of mean areal reflectivity over the simulation period
-h_val_vmag = 0.53  #structure function exponent
+mu_vmag = 2.19301767418396 #mean of mean areal reflectivity over the simulation period
+sigma2_vmag = 0.0656141226079684 #variance of mean areal reflectivity over the simulation period
+h_val_vmag = -0.0507375296897475  #structure function exponent
 q_val_vmag = 0.8  #scale ratio between levels n and n+1 (constant) [-]
 a_zero_vmag = 60 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
@@ -89,11 +88,11 @@ var_tol_vmag = 1 #acceptable tolerance for variance as ratio of input variance [
 mar_tol_vmag = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
 # Broken line parameters for velocity direction
-mu_vdir = 97 #mean of mean areal reflectivity over the simulation period
-sigma2_vdir = 60 #variance of mean areal reflectivity over the simulation period
-h_val_vdir = 0.41  #structure function exponent
+mu_vdir = 92.0248637081157 #mean of mean areal reflectivity over the simulation period
+sigma2_vdir = 24.5081700601431 #variance of mean areal reflectivity over the simulation period
+h_val_vdir = 0.0423475643811094  #structure function exponent
 q_val_vdir = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_vdir = 40 #time series decorrelation time [min]
+a_zero_vdir = 15 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
@@ -246,10 +245,9 @@ v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir,
 vx = np.cos(v_dir / 360 * 2 * np.pi) * v_mag 
 vy = np.sin(v_dir / 360 * 2 * np.pi) * v_mag
 
-#Tämä vain kokeilua varten, V joka paikassa 1 tai 0
-V = [np.zeros((ny_field, nx_field)),np.zeros((ny_field, nx_field))]
-V = np.concatenate([V_[None, :, :] for V_ in V])
-
+#Onko kahdella seuraavalla rivillä mitään virkaa? xy_coords:ia ei käytetä missään
+#Liittynee advektioon ja siihen käytetäänkö advektiota kahden ekan
+#kentän luonnissa
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
 xy_coords = np.stack([x_values, y_values])
 
@@ -268,10 +266,8 @@ R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs=dict()
-#p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
-#p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
-p_pow[2] = -2.5
-p_pow[3] = -2.5
+p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
+p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs) 
 R = []
 R_0 = generate_noise(
@@ -310,8 +306,11 @@ nowcast_method = nowcasts.get_method("steps_sim")
 #f = open("../../Local/tmp/mean_std.txt", "a")
 for i in range(n_timesteps):
     #TEEMU: näitten kai kuuluu olla negatiivisia?
-    p_pow[2] = -2.5 #- (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
-    p_pow[3] = -2.5 #- (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
+    p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
+    p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
+    # Selekeämmät muutokset in ja out arvojen tarkasukseen
+    #p_pow[2] = p_pow[2] + 0.2
+    #p_pow[3] = p_pow[3] + 0.2
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     #R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
@@ -366,9 +365,12 @@ R_sim = np.concatenate([R_[None, :, :] for R_ in R_sim])
 #TEEMU: precipfields.py:hyn funktioon plot_precip_field puukotettu yksiköksi dBZ
 animate(R_sim, savefig=False,path_outputs="../../Local/tmp2")
 
-#x_data = np.arange(0,len(mean_in))
+# x_data = np.arange(0,len(mean_in))
 # plt.plot(x_data,war_in,x_data, war_out)
 # plt.figure()
 # plt.plot(x_data,std_in,x_data, std_out)
+# plt.plot(x_data,mean_in,x_data,mean_out)
 # plt.plot(x_data,beta1_in[0:-1],x_data, beta1_out) 
 
+# plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
+# plt.colorbar()
