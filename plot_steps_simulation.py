@@ -16,7 +16,7 @@ stats_kwargs = dict()
 metadata = dict()
 
 # Set general simulation parameters
-n_timesteps = 1000 #number of timesteps
+n_timesteps = 30 #number of timesteps
 timestep = 6 #timestep length
 seed1 = 124 #seed number 1
 seed2 = 234 #seed number 2
