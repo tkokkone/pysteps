@@ -48,39 +48,39 @@ noise_method="parametric_sim" #where power filter pareameters given not estimate
 fft_method="numpy"
 scale_break = 18 #scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
-a_1 = 1.550131395886149 #OSAPOL, provided by Ville
-b_1 = 0.021172968449359647
-c_1 = 0.0019264357240685506
-a_2 = 3.582820233684395
-b_2 = -0.08242383889918288
-c_2 = 0.006099165690311373  
+a_1 = 1.65 
+b_1 = 0.25
+c_1 = -0.013
+a_2 = 3.6
+b_2 = 0.005
+c_2 = 0  
 p_pow = np.array([scale_break_wn,0,-2.0,-2.0]) #initialization 
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11 
 ar_par = np.array([0.2,1.8,2]) #order: at, bt, ct
 
 # Set std and WAR parameters, Seed et al. eq. 4
-a_v = -5.455962629592088
-b_v = 3.0216340404003423
-c_v = -0.1343959503091776
-a_war = -0.186998012300573
-b_war = 0.06138291149255198
-c_war = -0.0011463266799173295
+a_v = 3.91
+b_v = 1.62
+c_v = -0.059
+a_war = 0.0048
+b_war = 0.0404
+c_war = -0.0004
 
 # Broken line parameters for field mean
-mu_z = 7.20843781233898 #mean of mean areal reflectivity over the simulation period
-sigma2_z = 5.50191939501378 #variance of mean areal reflectivity over the simulation period
-h_val_z = 0.939519653123402  #structure function exponent
-q_val_z = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_z = 100 #time series decorrelation time [min]
+mu_z = 5.39 #mean of mean areal reflectivity over the simulation period
+sigma2_z = 11.53 #variance of mean areal reflectivity over the simulation period
+h_val_z = 0.94  #structure function exponent
+q_val_z = 0.93  #scale ratio between levels n and n+1 (constant) [-]
+a_zero_z = 438 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
 var_tol_z = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_z = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:
 
 # Broken line parameters for velocity magnitude
-mu_vmag = 2.19301767418396 #mean of mean areal reflectivity over the simulation period
-sigma2_vmag = 0.0656141226079684 #variance of mean areal reflectivity over the simulation period
-h_val_vmag = -0.0507375296897475  #structure function exponent
+mu_vmag = 2.39 #mean of mean areal reflectivity over the simulation period
+sigma2_vmag = 0.14 #variance of mean areal reflectivity over the simulation period
+h_val_vmag = 0.53  #structure function exponent
 q_val_vmag = 0.8  #scale ratio between levels n and n+1 (constant) [-]
 a_zero_vmag = 60 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
@@ -88,11 +88,11 @@ var_tol_vmag = 1 #acceptable tolerance for variance as ratio of input variance [
 mar_tol_vmag = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
 
 # Broken line parameters for velocity direction
-mu_vdir = 92.0248637081157 #mean of mean areal reflectivity over the simulation period
-sigma2_vdir = 24.5081700601431 #variance of mean areal reflectivity over the simulation period
-h_val_vdir = 0.0423475643811094  #structure function exponent
+mu_vdir = 97 #mean of mean areal reflectivity over the simulation period
+sigma2_vdir = 60 #variance of mean areal reflectivity over the simulation period
+h_val_vdir = 0.41  #structure function exponent
 q_val_vdir = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_vdir = 15 #time series decorrelation time [min]
+a_zero_vdir = 40 #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
 var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
 mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
