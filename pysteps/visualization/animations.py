@@ -15,7 +15,12 @@ import os
 import warnings
 
 import matplotlib.pylab as plt
+from matplotlib.animation import FuncAnimation
+import mpl_toolkits.axes_grid1
+import matplotlib.widgets
 import pysteps as st
+import numpy as np
+from pysteps.visualization import get_colormap
 
 PRECIP_VALID_TYPES = ("ensemble", "mean", "prob")
 PRECIP_DEPRECATED_ARGUMENTS = (
@@ -25,6 +30,159 @@ PRECIP_DEPRECATED_ARGUMENTS = (
 )  # TODO: remove in version >= 1.6
 MOTION_VALID_METHODS = ("quiver", "streamplot")
 
+class Player(FuncAnimation):
+    def __init__(self, fig, func, frames=None, init_func=None, fargs=None,
+                 save_count=None, mini=0, maxi=100, pos=(0.125, 0.92), **kwargs):
+        self.i = 0
+        self.min=mini
+        self.max=maxi
+        self.runs = True
+        self.forwards = True
+        self.fig = fig
+        self.func = func
+        self.setup(pos)
+        FuncAnimation.__init__(self,self.fig, self.update, frames=self.play(), 
+                                           init_func=init_func, fargs=fargs,
+                                           save_count=save_count, **kwargs )    
+
+    def play(self):
+        while self.runs:
+            self.i = self.i+self.forwards-(not self.forwards)
+            if self.i > self.min and self.i < self.max:
+                yield self.i
+            else:
+                self.stop()
+                yield self.i
+
+    def start(self):
+        self.runs=True
+        self.event_source.start()
+
+    def stop(self, event=None):
+        self.runs = False
+        self.event_source.stop()
+
+    def forward(self, event=None):
+        self.forwards = True
+        self.start()
+    def backward(self, event=None):
+        self.forwards = False
+        self.start()
+    def oneforward(self, event=None):
+        self.forwards = True
+        self.onestep()
+    def onebackward(self, event=None):
+        self.forwards = False
+        self.onestep()
+
+    def onestep(self):
+        if self.i > self.min and self.i < self.max:
+            self.i = self.i+self.forwards-(not self.forwards)
+        elif self.i == self.min and self.forwards:
+            self.i+=1
+        elif self.i == self.max and not self.forwards:
+            self.i-=1
+        self.func(self.i)
+        self.slider.set_val(self.i)
+        self.fig.canvas.draw_idle()
+
+    def setup(self, pos):
+        playerax = self.fig.add_axes([pos[0],pos[1], 0.64, 0.04])
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(playerax)
+        bax = divider.append_axes("right", size="80%", pad=0.05)
+        sax = divider.append_axes("right", size="80%", pad=0.05)
+        fax = divider.append_axes("right", size="80%", pad=0.05)
+        ofax = divider.append_axes("right", size="100%", pad=0.05)
+        sliderax = divider.append_axes("right", size="500%", pad=0.07)
+        
+        self.button_back = matplotlib.widgets.Button(playerax, label='b')
+        self.button_oneback = matplotlib.widgets.Button(bax, label='1b')
+        self.button_stop = matplotlib.widgets.Button(sax, label='stop')
+        self.button_oneforward = matplotlib.widgets.Button(fax, label='1f')
+        self.button_forward = matplotlib.widgets.Button(ofax, label='f')
+        self.button_oneback.on_clicked(self.onebackward)
+        self.button_back.on_clicked(self.backward)
+        self.button_stop.on_clicked(self.stop)
+        self.button_forward.on_clicked(self.forward)
+        self.button_oneforward.on_clicked(self.oneforward)
+        self.slider = matplotlib.widgets.Slider(sliderax, '', 
+                                                self.min, self.max, valinit=self.i)
+        self.slider.on_changed(self.set_pos)
+
+    def set_pos(self,i):
+        self.i = int(self.slider.val)
+        self.func(self.i)
+
+    def update(self,i):
+        self.slider.set_val(i)
+
+
+
+def animate_interactive(
+        precip_obs,
+        grid_on=False,
+        colorbar_on=True,
+        predefined_value_range=True,
+        cmap=None,
+):
+    # figure axis setup 
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(bottom=0.15)
+
+    # display initial image
+    ntsteps = precip_obs.shape[0]
+    ny = precip_obs.shape[1]
+    nx = precip_obs.shape[2]
+    idx = 0
+    
+    if cmap==None:
+        cmap, norm, _, _ = get_colormap("intensity","dBZ","pysteps")
+    if grid_on:
+        ax.set_xticks(np.arange(-.5, nx, 1), minor=True)
+        ax.set_yticks(np.arange(-.5, ny, 1), minor=True)
+        ax.grid(which='minor', color='black', linestyle='-', linewidth=1)
+    
+    if predefined_value_range:
+        vmin = 0
+        vmax = 55
+        normin = norm
+    else:
+        vmin = None
+        vmax = None
+        normin = None
+    im_h = ax.imshow(
+        precip_obs[idx, :, :],
+        cmap=cmap,
+        interpolation='none',
+        norm=normin,
+        vmin = vmin,
+        vmax = vmax,
+    )
+
+    # add colorbar
+    if colorbar_on:
+        # get colormap and color levels
+        _, _, clevs, clevs_str = get_colormap("intensity","dBZ","pysteps")
+        extend = "max"
+        cbar = plt.colorbar(
+            im_h, ticks=clevs, spacing="uniform", extend=extend, shrink=0.8, cax=None
+        )
+        if clevs_str is not None:
+            cbar.ax.set_yticklabels(clevs_str)
+
+        cbar.ax.set_title("dBZ", fontsize=10)
+        cbar.set_label("Precipitation intensity")
+        ax.xaxis.set_ticks([])
+        ax.xaxis.set_ticklabels([])
+        ax.yaxis.set_ticks([])
+        ax.yaxis.set_ticklabels([])
+
+    def update(idx):
+        im_h.set_data(precip_obs[idx, :, :])
+
+    ani = Player(fig, update, maxi=ntsteps-1)
+    #plt.show()
+    return ani
 
 def animate(
     precip_obs,

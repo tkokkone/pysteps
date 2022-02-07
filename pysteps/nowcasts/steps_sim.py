@@ -55,6 +55,8 @@ def forecast(
     vel_pert_kwargs=None,
     mask_kwargs=None,
     measure_time=False,
+    include_AR=2,
+    normalize_field=True,
 ):
     """Generate a single simulation member with suppplide STEPS parameters
 
@@ -335,7 +337,7 @@ def forecast(
             mask=MASK_thr,
             fft_method=fft,
             output_domain=domain,
-            normalize=True,
+            normalize=normalize_field,
             compute_stats=True,
             compact_output=True,
         )
@@ -380,10 +382,16 @@ def forecast(
     for i in range(n_cascade_levels):
         PHI[i, :] = autoregression.estimate_ar_params_yw(GAMMA[i, :])
     
-    # Next three lines to set AR inactive
-    #PHI[:,0] = 0
-    #PHI[:,1] = 0
-    #PHI[:,2] = 1    
+    if include_AR == 0: #no AR
+        PHI[:,0] = 0
+        PHI[:,1] = 0
+        PHI[:,2] = 1
+    elif include_AR == 1: #pure advection
+        PHI[:,0] = 1
+        PHI[:,1] = 0
+        PHI[:,2] = 0
+
+        
     nowcast_utils.print_ar_params(PHI)
 
     # TEEMU: copy the last element in R_c to EPS
@@ -451,11 +459,13 @@ def forecast(
         R_d["cascade_levels"] = np.stack(R_d["cascade_levels"])
         
     
+    R_d["normalized"] = normalize_field
     R_f_new = recomp_method(R_d)
-    def normalize_field(field):
+    def normalize_field_func(field):
         return (field - field.mean()) / field.std()
 
-    R_f_new = normalize_field(R_f_new)
+    if normalize_field:
+        R_f_new = normalize_field_func(R_f_new)
 
 
     # if mask_method is not None:

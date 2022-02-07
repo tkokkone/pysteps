@@ -223,12 +223,14 @@ def _plot_field(
     if (x_grid is None) or (y_grid is None):
         im = ax.imshow(
             precip,
-            cmap='plasma',
-            #norm=norm,
+            cmap=cmap,
+            norm=norm,
             extent=extent,
             interpolation="nearest",
             origin=origin,
             zorder=10,
+            vmin = 0,
+            vmax = 55,
         )
     else:
         im = ax.pcolormesh(
