@@ -55,12 +55,12 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 100  # number of timesteps
+n_timesteps = 130  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2
-nx_field = 256  # number of columns in precip fields
-ny_field = 256  # number of rows in precip fields
+nx_field = 512  # number of columns in precip fields
+ny_field = 512  # number of rows in precip fields
 kmperpixel = 1.0  # grid resolution
 domain = "spatial"  # spatial or spectral
 metadata["x1"] = 0.0  # x-coordinate of lower left
