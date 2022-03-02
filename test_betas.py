@@ -8,6 +8,7 @@ Created on Tue Mar  1 12:25:07 2022
 import matplotlib.pyplot as plt
 import pysteps
 from datetime import datetime
+import numpy as np
 
 # INPUT DATA
 #Read in the event with pySTEPS
@@ -43,7 +44,16 @@ pysteps.visualization.plot_precip_field(R[0], title=date)
 
 # DATA TRANSFORMATION from mm/h into dbz
 #Values less than threshold to zero
-R[R<0.1] = 0
+#Replace non-finite values with the minimum value
+#R2 = R.copy()
+#for i in range(R2.shape[0]):
+#R2[i, ~np.isfinite(R[i, :])] = np.nanmin(R2[i, :])
+#R[R<0.1] = 0
+
+#Replace non-finite values with the minimum value
+for i in range(R.shape[0]):
+    R[i, ~np.isfinite(R[i, :])] = np.nanmin(R[i, :])
+
 
 #Information into metadata
 metadata["zerovalue"] = 0
@@ -65,4 +75,10 @@ R, metadata = pysteps.utils.conversion.to_reflectivity(R, metadata, zr_a=a_R, zr
 #Plot R-field
 plt.figure()
 pysteps.visualization.plot_precip_field(R[0], title=date)
+
+scale_break_wn = np.log(256/18)
+Fp = pysteps.noise.fftgenerators.initialize_param_2d_fft_filter(
+        R[0], scale_break=scale_break_wn)
+beta1 = Fp["pars"][1]
+beta2 = Fp["pars"][2]
 
