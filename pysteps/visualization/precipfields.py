@@ -436,6 +436,7 @@ def _get_colorlist(units="mm/h", colorscale="pysteps"):
                 160,
             ]
         elif units == "dBZ":
+            #TEEMU: kokeillaan vaihtaa 10 -> 5
             clevs = np.arange(10, 65, 5)
         else:
             raise ValueError("Wrong units in get_colorlist: %s" % units)
