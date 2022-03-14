@@ -55,7 +55,7 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 100  # number of timesteps
+n_timesteps = 85  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2
@@ -102,7 +102,8 @@ c_2 = 0.006099165690311373
 p_pow = np.array([scale_break_wn, 0, -2.0, -2.0])  # initialization
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11
-ar_par = np.array([0.13, 1.68, 0.88])  # order: at, bt, ct
+#ar_par = np.array([0.13, 1.68, 0.88])  # order: at, bt, ct
+ar_par = np.array([1.5, 2.5, 1.1])  # order: at, bt, ct TEST
 
 # Set std and WAR parameters, Seed et al. eq. 4
 a_v = -5.455962629592088
