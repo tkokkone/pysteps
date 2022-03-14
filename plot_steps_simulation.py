@@ -20,24 +20,24 @@ metadata = dict()
 #Visualization
 grid_on = False #gridlines on or off
 colorbar_on = True #colorbar on or off
-cmap = None #None means pysteps color mapping
+cmap = 'Blues' #None means pysteps color mapping
 
-predefined_value_range = True #predefined value range in colorbar on or off
+predefined_value_range = False #predefined value range in colorbar on or off
 #This sets vmin and vmax parameters in imshow and sets normalization True/False
 
-show_in_out_param_figs = True #in and out parameter value plots on/off
+show_in_out_param_figs = False #in and out parameter value plots on/off
 
 #Statistics
 # Set mean, std, waar at the end of the simulation to supplied values
-set_stats_active = True
+set_stats_active = False
 #Normalize rain fields to zero mean one std before applying set_stats
-normalize_field = True
+normalize_field = False
 
 # AR_mode
 # 0: pure innovation
 # 1: pure advection 
 # 2: AR using parameters given below
-AR_mode = 2
+AR_mode = 1
 
 # Advection_mode
 # 0: no advection
@@ -45,19 +45,19 @@ AR_mode = 2
 # 2: constant advection with velocities given below, initial field
 #    a rectangular one block with zero backcround, block coords below 
 # 3: dynamic advection using parameters given below
-advection_mode = 3
-const_v_x = 1.5
-const_v_y = 2.5
-block_ulr = 240 #upper left row of one block
+advection_mode = 1
+const_v_x = 0
+const_v_y = 1.5
+block_ulr = 243 #upper left row of one block
 block_ulc = 100 #upper left column of one block
 block_xsize = 20 #size of one block in x direction (no of grid cells)
 block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 85  # number of timesteps
+n_timesteps = 43  # number of timesteps
 timestep = 5  # timestep length
-seed1 = 124  # seed number 1
+seed1 = 127  # seed number 1
 seed2 = 234  # seed number 2
 nx_field = 256  # number of columns in precip fields
 ny_field = 256  # number of rows in precip fields
@@ -482,5 +482,7 @@ if show_in_out_param_figs:
     plt.title("Beta 2")
     plt.legend(['In', 'Out'])
 
-# plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
-# plt.colorbar()
+#R_acc = np.sum(R_sim,axis=0)
+#plt.figure()
+#plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
+#plt.colorbar()

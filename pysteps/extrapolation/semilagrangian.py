@@ -477,7 +477,7 @@ def extrapolate_wrap(
             precip_warped = ip.map_coordinates(
                 precip,
                 coords_warped,
-                mode="constant",
+                mode="grid-wrap",
                 cval=outval,
                 order=interp_order,
                 prefilter=prefilter,
