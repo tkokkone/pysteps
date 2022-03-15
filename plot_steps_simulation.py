@@ -29,9 +29,9 @@ show_in_out_param_figs = False #in and out parameter value plots on/off
 
 #Statistics
 # Set mean, std, waar at the end of the simulation to supplied values
-set_stats_active = False
+set_stats_active = True
 #Normalize rain fields to zero mean one std before applying set_stats
-normalize_field = False
+normalize_field = True
 
 # AR_mode
 # 0: pure innovation
@@ -45,7 +45,7 @@ AR_mode = 1
 # 2: constant advection with velocities given below, initial field
 #    a rectangular one block with zero backcround, block coords below 
 # 3: dynamic advection using parameters given below
-advection_mode = 1
+advection_mode = 3
 const_v_x = 0
 const_v_y = 1.5
 block_ulr = 243 #upper left row of one block

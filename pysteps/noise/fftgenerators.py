@@ -177,7 +177,7 @@ def initialize_param_2d_fft_filter(field, **kwargs):
         # to be optimized
         p0 = [0, beta, beta]  # first guess
         bounds = (
-            [0, -4, -4],
+            [0, -4.5, -4.5],
             [20, -1.0, -1.0],
         )  # TODO: provide better bounds
         if weighted:
