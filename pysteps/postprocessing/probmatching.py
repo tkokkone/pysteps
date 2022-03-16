@@ -44,7 +44,7 @@ def set_stats(field, stats_kwargs):
     rain_zero_value = stats_kwargs["rain_zero_value"] 
     #TODO: link bounds a and b to mean and std
     a = 0 
-    b = 50
+    b = 90
     
     field = ((field - field.mean()) / field.std()) * std + mean;
     

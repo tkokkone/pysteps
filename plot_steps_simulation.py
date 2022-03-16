@@ -482,7 +482,7 @@ if show_in_out_param_figs:
     plt.title("Beta 2")
     plt.legend(['In', 'Out'])
 
-#R_acc = np.sum(R_sim,axis=0)
-#plt.figure()
-#plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
-#plt.colorbar()
+R_acc = np.sum(R_sim,axis=0)
+plt.figure()
+plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
+plt.colorbar()
