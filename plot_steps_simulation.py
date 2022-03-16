@@ -57,12 +57,12 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 15  # number of timesteps
+n_timesteps = 30  # number of timesteps
 timestep = 5  # timestep length
-seed1 = 127  # seed number 1
+seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2
-nx_field = 256  # number of columns in precip fields
-ny_field = 256  # number of rows in precip fields
+nx_field = 512  # number of columns in precip fields
+ny_field = 512  # number of rows in precip fields
 kmperpixel = 1.0  # grid resolution
 domain = "spatial"  # spatial or spectral
 metadata["x1"] = 0.0  # x-coordinate of lower left
@@ -88,11 +88,11 @@ extent[3] = 3 * ny_field / 4 * kmperpixel
 # where power filter pareameters given not estimated
 noise_method = "parametric_sim"
 fft_method = "numpy"
-scale_break = 100  # scale break in km
+scale_break = 18  # scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
-constant_betas = False
-beta1 = -2.7
-beta2 = -2.7
+constant_betas = True
+beta1 = -1.9
+beta2 = -1.9
 
 a_1 = 1.550131395886149 #OSAPOL, provided by Ville
 b_1 = 0.021172968449359647
@@ -114,6 +114,7 @@ c_v = -0.1343959503091776
 a_war = -0.186998012300573
 b_war = 0.06138291149255198
 c_war = -0.0011463266799173295
+min_war = 0.1
 
 # Broken line parameters for field mean
 mu_z = 7.20843781233898 #mean of mean areal reflectivity over the simulation period
@@ -422,12 +423,6 @@ for i in range(n_timesteps):
     )
 
     #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
-    Fp = noise.fftgenerators.initialize_param_2d_fft_filter(
-        R_new, scale_break=scale_break_wn)
-    w0_km = nx_field / np.exp(scale_break_wn)
-    beta1_out.append(Fp["pars"][1])
-    beta2_out.append(Fp["pars"][2])
-    scaleb_out.append(w0_km)
     R[0] = R_prev
     R[1] = R_new
     R[2] = generate_noise(
@@ -436,10 +431,18 @@ for i in range(n_timesteps):
     stats_kwargs["mean"] = r_mean[i]
     stats_kwargs["std"] = a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
     stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
+    if stats_kwargs["war"] < min_war:
+       stats_kwargs["war"] = min_war 
     stats_kwargs["war_thold"] = war_thold
     stats_kwargs["rain_zero_value"] = rain_zero_value
     if set_stats_active == True:
         R_new = set_stats(R_new, stats_kwargs)
+    Fp = noise.fftgenerators.initialize_param_2d_fft_filter(
+        R_new, scale_break=scale_break_wn)
+    w0_km = nx_field / np.exp(scale_break_wn)
+    beta1_out.append(Fp["pars"][1])
+    beta2_out.append(Fp["pars"][2])
+    scaleb_out.append(w0_km)
     war = len(np.where(R_new > war_thold)[0]) / (nx_field * ny_field)
     mean_out.append(R_new.mean())
     std_out.append(R_new.std())
