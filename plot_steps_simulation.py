@@ -27,7 +27,7 @@ predefined_value_range = False #predefined value range in colorbar on or off
 
 show_in_out_param_figs = True #in and out parameter value plots on/off
 
-show_cumul_plot = False #cumulative plot on/off
+show_cumul_plot = True #cumulative plot on/off
 
 #Statistics
 # Set mean, std, waar at the end of the simulation to supplied values
@@ -39,7 +39,7 @@ normalize_field = True
 # 0: pure innovation
 # 1: pure advection 
 # 2: AR using parameters given below
-AR_mode = 0
+AR_mode = 2
 
 # Advection_mode
 # 0: no advection
@@ -47,7 +47,7 @@ AR_mode = 0
 # 2: constant advection with velocities given below, initial field
 #    a rectangular one block with zero backcround, block coords below 
 # 3: dynamic advection using parameters given below
-advection_mode = 0
+advection_mode = 3
 const_v_x = 0
 const_v_y = 1.5
 block_ulr = 243 #upper left row of one block
@@ -57,7 +57,7 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 30  # number of timesteps
+n_timesteps = 200  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2
@@ -90,7 +90,7 @@ noise_method = "parametric_sim"
 fft_method = "numpy"
 scale_break = 18  # scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
-constant_betas = True
+constant_betas = False
 beta1 = -1.9
 beta2 = -1.9
 
