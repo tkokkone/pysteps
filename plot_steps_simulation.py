@@ -25,11 +25,13 @@ cmap = 'Blues' #None means pysteps color mapping
 predefined_value_range = False #predefined value range in colorbar on or off
 #This sets vmin and vmax parameters in imshow and sets normalization True/False
 
-show_in_out_param_figs = False #in and out parameter value plots on/off
+show_in_out_param_figs = True #in and out parameter value plots on/off
+
+show_cumul_plot = False #cumulative plot on/off
 
 #Statistics
 # Set mean, std, waar at the end of the simulation to supplied values
-set_stats_active = True
+set_stats_active = False
 #Normalize rain fields to zero mean one std before applying set_stats
 normalize_field = True
 
@@ -37,7 +39,7 @@ normalize_field = True
 # 0: pure innovation
 # 1: pure advection 
 # 2: AR using parameters given below
-AR_mode = 1
+AR_mode = 0
 
 # Advection_mode
 # 0: no advection
@@ -45,7 +47,7 @@ AR_mode = 1
 # 2: constant advection with velocities given below, initial field
 #    a rectangular one block with zero backcround, block coords below 
 # 3: dynamic advection using parameters given below
-advection_mode = 3
+advection_mode = 0
 const_v_x = 0
 const_v_y = 1.5
 block_ulr = 243 #upper left row of one block
@@ -55,7 +57,7 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 43  # number of timesteps
+n_timesteps = 15  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 127  # seed number 1
 seed2 = 234  # seed number 2
@@ -86,7 +88,7 @@ extent[3] = 3 * ny_field / 4 * kmperpixel
 # where power filter pareameters given not estimated
 noise_method = "parametric_sim"
 fft_method = "numpy"
-scale_break = 18  # scale break in km
+scale_break = 100  # scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
 constant_betas = False
 beta1 = -2.7
@@ -102,8 +104,8 @@ c_2 = 0.006099165690311373
 p_pow = np.array([scale_break_wn, 0, -2.0, -2.0])  # initialization
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11
-#ar_par = np.array([0.13, 1.68, 0.88])  # order: at, bt, ct
-ar_par = np.array([1.5, 2.5, 1.1])  # order: at, bt, ct TEST
+ar_par = np.array([0.13, 1.68, 0.88])  # order: at, bt, ct
+#ar_par = np.array([1.5, 2.5, 1.1])  # order: at, bt, ct TEST
 
 # Set std and WAR parameters, Seed et al. eq. 4
 a_v = -5.455962629592088
@@ -482,7 +484,8 @@ if show_in_out_param_figs:
     plt.title("Beta 2")
     plt.legend(['In', 'Out'])
 
-R_acc = np.sum(R_sim,axis=0)
-plt.figure()
-plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
-plt.colorbar()
+if show_cumul_plot:
+    R_acc = np.sum(R_sim,axis=0)
+    plt.figure()
+    plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
+    plt.colorbar()
