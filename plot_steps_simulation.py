@@ -61,8 +61,8 @@ n_timesteps = 200  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2
-nx_field = 512  # number of columns in precip fields
-ny_field = 512  # number of rows in precip fields
+nx_field = 1226  # number of columns in precip fields
+ny_field = 760  # number of rows in precip fields
 kmperpixel = 1.0  # grid resolution
 domain = "spatial"  # spatial or spectral
 metadata["x1"] = 0.0  # x-coordinate of lower left
@@ -411,7 +411,7 @@ for i in range(n_timesteps):
         vx[i],
         vy[i],
         ar_par,
-        n_cascade_levels=6,
+        n_cascade_levels=8,
         R_thr=-10.0,
         kmperpixel=kmperpixel,
         timestep=timestep,
