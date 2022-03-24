@@ -83,6 +83,7 @@ Available Importers
     import_odim_hdf5
     import_opera_hdf5
     import_saf_crri
+    import_fmi_osapol
 """
 
 import gzip
@@ -1593,3 +1594,70 @@ def _import_saf_crri_geodata(filename):
     ds_rainfall.close()
 
     return geodata
+
+@postprocess_import()
+def import_fmi_osapol(filename, **kwargs):
+    """Import a rainfall intensity (mm/h) from an FMI OSAPOL GeoTIFF file.
+ 
+    Parameters
+    ----------
+ 
+    filename : str
+        Name of the file to import.
+ 
+    {extra_kwargs_doc}
+ 
+    Returns
+    -------
+ 
+    out : tuple
+        A three-element tuple containing the precipitation field,
+        the associated quality field and metadata.
+        The quality field is currently set to None.
+    """
+    if not GDAL_IMPORTED:
+        raise MissingOptionalDependency(
+            "gdal package is required to import "
+            "FMI's OSAPOL radar rainfall intensity composite in GeoTIFF format "
+            "but it is not installed"
+        )
+ 
+    f = gdal.Open(filename, gdalconst.GA_ReadOnly)
+ 
+    rb = f.GetRasterBand(1)
+    precip = rb.ReadAsArray()
+    mask = precip == -1
+    #precip = precip.astype(float) * rb.GetScale() + rb.GetOffset()
+    precip[mask] = np.nan
+ 
+    sr = osr.SpatialReference()
+    pr = f.GetProjection()
+    sr.ImportFromWkt(pr)
+ 
+    projdef = sr.ExportToProj4()
+ 
+    gt = f.GetGeoTransform()
+ 
+    metadata = {}
+ 
+    metadata["projection"] = projdef
+    metadata["x1"] = gt[0]
+    metadata["y1"] = gt[3] + gt[5] * f.RasterYSize
+    metadata["x2"] = metadata["x1"] + gt[1] * f.RasterXSize
+    metadata["y2"] = gt[3]
+    metadata["xpixelsize"] = abs(gt[1])
+    metadata["ypixelsize"] = abs(gt[5])
+    if gt[5] < 0:
+        metadata["yorigin"] = "upper"
+    else:
+        metadata["yorigin"] = "lower"
+    metadata["institution"] = "Finnish Meteorological Institute"
+    metadata["unit"] = rb.GetUnitType()
+    metadata["transform"] = None
+    metadata["accutime"] = 5.0
+    metadata["threshold"] = _get_threshold_value(precip)
+    metadata["zerovalue"] = np.nanmin(precip)
+    metadata["cartesian_unit"] = "m"
+ 
+    return precip, None, metadata
+
