@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import time
 import pysteps
+from pysteps import extrapolation
 from datetime import datetime
 import statsmodels.api as sm
 import scipy.stats as sp
@@ -52,6 +53,12 @@ del quality  #delete quality variable because it is not used
 #Add unit to metadata
 metadata["unit"] = "mm/h"
 
+#Replace non-finite values with zero
+#Ehkä myöhemmin? Nannit maskataan optical flow:ssa
+#for i in range(R.shape[0]):
+#    R[i, ~np.isfinite(R[i, :])] = 0
+
+
 #Values less than threshold to zero
 R[R<0.1] = 0
 
@@ -73,244 +80,36 @@ b_R=1.53
 
 R, metadata = pysteps.utils.conversion.to_reflectivity(R, metadata, zr_a=a_R, zr_b=b_R)
 
-##############################################################################
-# CALCULATE ADVECTION TIME SERIES
-
 #Choose the method to calculate advection
 oflow_method = "LK" #Lukas-Kanade
 oflow_advection = pysteps.motion.get_method(oflow_method) 
 
+
+extrap_method = "semilagrangian"
+extrapolator_method = extrapolation.get_method(extrap_method)
+extrap_kwargs["xy_coords"] = xy_coords
+extrap_kwargs["allow_nonfinite_values"] = True
+
 #Variables for magnitude and direction of advection
 Vx = np.zeros(len(R)-1)
 Vy = np.zeros(len(R)-1)
-Vxy = np.zeros(len(R)-1)
-Vdir_rad = np.zeros(len(R)-1)
 
 #Loop to calculate average x- and y-components of the advection, as well as magnitude and direction in xy-dir
-for i in range(0, len(R)-1):
-    Vtemp = oflow_advection(R[i:i+2, :, :])
-    #Vtemp[0,:,:] contains the x-components of the motion vectors.
-    #Vtemp[1,:,:] contains the y-components of the motion vectors.
-    #The velocities are in units of pixels/timestep.
-    Vx[i] = np.nanmean(Vtemp[0]) #field mean in x-direction
-    Vy[i] = np.nanmean(Vtemp[1]) #field mean in y-direction
-    Vxy[i] = np.sqrt(Vx[i]**2 + Vy[i]**2) #total magnitude of advection
-    Vdir_rad[i] = np.arctan(Vy[i]/Vx[i]) #direction of advection in xy-dir in radians
-    #The inverse of tan, so that if y = tan(x) then x = arctan(y).
-    #Range of values of the function: âˆ’pi/2 < y < pi/2 (-1.5707963267948966 < y < 1.5707963267948966) -> np.pi gives value of pi
-Vdir_deg = (Vdir_rad/(2*np.pi))*360 #direction of advection in xy-dir in degrees
-
-#Change of direction
-Vdir_change = np.zeros(len(Vdir_deg))
-for i in range(1, len(Vdir_deg)):
-    Vdir_change[i] = Vdir_deg[i]-Vdir_deg[i-1]
-
-for i in range(1, len(Vdir_change)):
-    if Vdir_change[i] < -180:
-        Vdir_change[i] = Vdir_change[i] + 360
-    elif Vdir_change[i] > 180:
-        Vdir_change[i] = Vdir_change[i] - 360
+for i in range(2, len(R)-1):
+    R_cur = R[i, :, :]
+    R_prev = R[i-1, :, :]
+    R_prev2 = R[i-2, :, :]
+    V1 = oflow_advection(np.stack([R_prev,R_cur],axis=0))
+    V2 = oflow_advection(np.stack([R_prev2,R_prev,R_cur],axis=0))
+    R_prev_adv = extrapolator_method(R_prev, V1, 1, "min", **extrap_kwargs)[
+            -1
+        ]
+   # V1test = oflow_advection(R[i-1:i, :, :])
+   # V2 = oflow_advection(R[i-2:i, :, :])
     
-#True direction in degs
-Vdir_deg_adj = (Vdir_rad/(2*np.pi))*360
-for j in range(0, len(R)-1):
-    if Vx[j]<0 and Vy[j]>0:
-        Vdir_deg_adj[j] = Vdir_deg_adj[j]+180
-    elif Vx[j]>0 and Vy[j]<0:
-        Vdir_deg_adj[j] = Vdir_deg_adj[j]+360
-    elif Vx[j]<0 and Vy[j]<0:
-        Vdir_deg_adj[j] = Vdir_deg_adj[j]+180
-    else:
-        Vdir_deg_adj[j] = Vdir_deg_adj[j]
-
-#True change of direction  
-Vdir_change2 = np.zeros(len(Vdir_deg_adj))
-for i in range(1, len(Vdir_deg_adj)):
-    Vdir_change2[i] = Vdir_deg_adj[i]-Vdir_deg_adj[i-1]
-
-for i in range(1, len(Vdir_change2)):
-    if Vdir_change2[i] < -180:
-        Vdir_change2[i] = Vdir_change2[i] + 360
-    elif Vdir_change2[i] > 180:
-        Vdir_change2[i] = Vdir_change2[i] - 360
-        
-##############################################################################
-# COMMON BROKEN LINE PARAMETERS
-
-q = 0.8
-noBLs = 1
-var_tol = 1
-mar_tol = 1
-
-tStep = float(5) #timestep [min]
-tSerieLength = (len(R) - 1) * tStep #timeseries length [min]
-x_values = np.arange(0, tSerieLength + tStep, tStep)
-euler = 2.71828
-
-##############################################################################
-# BROKEN LINE PARAMETERS FOR AREAL MEAN RAINFALL
-
-#Mean and variance of input time series
-mu_z = float(np.mean(areal_rainfall_ts)) #mean of input time series [dBz]
-sigma2_z = float(np.var(areal_rainfall_ts)) #variance of input time series [dBz]
-
-#Correlations and a_zero of time series
-event_cors = sm.tsa.acf(areal_rainfall_ts, nlags=(len(areal_rainfall_ts) - 1))
-plt.figure()
-plt.plot(event_cors)
-plt.title("Autocorrelations: mean R")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/auto_cors_meanR.png")
-
-#Timesteps for no autocorrelation
-no_autocor = np.where(event_cors < 1/euler)
-a_zero = (no_autocor[0][0]-1)*tStep #timesteps in which correlation values are > 1/e = 0.36787968862663156
-
-#Power spectrum, beta, and H of time series
-power_spectrum = np.abs(np.fft.fft(areal_rainfall_ts))**2 #absolute value of the complex components of fourier transform of data
-freqs = np.fft.fftfreq(areal_rainfall_ts.size, tStep) #frequencies
-
-freqs_sliced = freqs[1:]
-freqs_sliced = freqs_sliced[freqs_sliced>0]
-power_spectrum_sliced = power_spectrum[1:]
-power_spectrum_sliced = power_spectrum_sliced[0:len(freqs_sliced)]
-
-#Calculate power spectrum exponent beta and H from beta using linear fitting of the data
-slope, intercept, r_value, p_value, std_err = sp.linregress(np.log(freqs_sliced[0:len(freqs_sliced)]), np.log(power_spectrum_sliced[0:len(freqs_sliced)]))
-y_values = slope*np.log(freqs_sliced[0:len(freqs_sliced)])+intercept
-
-plt.figure()
-plt.plot(np.log(freqs_sliced), np.log(power_spectrum_sliced))
-plt.plot(np.log(freqs_sliced[0:len(freqs_sliced)]), y_values)
-plt.title("Freqs vs. power spectrum -fit: mean R")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/freq_vs_ps_meanR.png")
-
-H = (-slope-1)/2
-
-##############################################################################
-# BROKEN LINE PARAMETERS FOR ADVECTION MAGNITUDE
-
-#Mean and variance of input time series
-mu_z_Vxy = float(np.mean(Vxy)) #mean of input time series
-sigma2_z_Vxy = float(np.var(Vxy)) #variance of input time series
-
-#Correlations and a_zero of time series
-event_cors_Vxy = sm.tsa.acf(Vxy, nlags=(len(Vxy) - 1))
-plt.figure()
-plt.plot(event_cors_Vxy)
-plt.title("Autocorrelations: advection mag")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/auto_cors_adv-mag.png")
-
-#Timesteps for no autocorrelation
-no_autocor_Vxy = np.where(event_cors_Vxy < 1/euler)
-a_zero_Vxy = (no_autocor_Vxy[0][0]-1)*tStep #time steps in which correlation values are > 1/e = 0.36787968862663156
-
-#Power spectrum, beta, and H of time series
-power_spectrum_Vxy = np.abs(np.fft.fft(Vxy))**2 #absolute value of the complex components of fourier transform of data
-freqs_Vxy = np.fft.fftfreq(Vxy.size, tStep) #frequencies
-
-freqs_Vxy_sliced = freqs_Vxy[1:]
-freqs_Vxy_sliced = freqs_Vxy_sliced[freqs_Vxy_sliced>0]
-power_spectrum_Vxy_sliced = power_spectrum_Vxy[1:]
-power_spectrum_Vxy_sliced = power_spectrum_Vxy_sliced[0:len(freqs_Vxy_sliced)]
-
-#Calculate power spectrum exponent beta and H from beta using linear fitting of the data
-slope_Vxy, intercept_Vxy, r_value_Vxy, p_value_Vxy, std_err_Vxy = sp.linregress(np.log(freqs_Vxy_sliced[0:len(freqs_Vxy_sliced)]), np.log(power_spectrum_Vxy_sliced[0:len(freqs_Vxy_sliced)]))
-y_values_Vxy = slope_Vxy*np.log(freqs_Vxy_sliced[0:len(freqs_Vxy_sliced)])+intercept_Vxy
-
-plt.figure()
-plt.plot(np.log(freqs_Vxy_sliced), np.log(power_spectrum_Vxy_sliced))
-plt.plot(np.log(freqs_Vxy_sliced[0:len(freqs_Vxy_sliced)]), y_values_Vxy)
-plt.title("Freqs vs. power spectrum -fit: advection mag")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/freq_vs_ps_adv-mag.png")
-
-H_Vxy = (-slope_Vxy-1)/2
-
-##############################################################################
-# BROKEN LINE PARAMETERS FOR ADVECTION DIRECTION
-
-#Mean and variance of input time series
-mu_z_Vdir_deg_adj = float(np.mean(Vdir_deg_adj)) #mean of input time series
-sigma2_z_Vdir_deg_adj = float(np.var(Vdir_deg_adj)) #variance of input time series
-
-#Correlations and a_zero of time series
-event_cors_Vdir_deg_adj = sm.tsa.acf(Vdir_deg_adj, nlags=(len(Vdir_deg_adj) - 1))
-plt.figure()
-plt.plot(event_cors_Vdir_deg_adj)
-plt.title("Autocorrelations: advection dir")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/auto_cors_adv-dir.png")
-
-#Timesteps for no autocorrelation
-no_autocor_Vdir_deg_adj = np.where(event_cors_Vdir_deg_adj < 1/euler)
-a_zero_Vdir_deg_adj = (no_autocor_Vdir_deg_adj[0][0]-1)*tStep #time steps in which correlation values are > 1/e = 0.36787968862663156
-
-#Power spectrum, beta, and H of time series
-power_spectrum_Vdir_deg_adj = np.abs(np.fft.fft(Vdir_deg_adj))**2 #absolute value of the complex components of fourier transform of data
-freqs_Vdir_deg_adj = np.fft.fftfreq(Vdir_deg_adj.size, tStep) #frequencies
-
-freqs_Vdir_deg_adj_sliced = freqs_Vdir_deg_adj[1:]
-freqs_Vdir_deg_adj_sliced = freqs_Vdir_deg_adj_sliced[freqs_Vdir_deg_adj_sliced>0]
-power_spectrum_Vdir_deg_adj_sliced = power_spectrum_Vdir_deg_adj[1:]
-power_spectrum_Vdir_deg_adj_sliced = power_spectrum_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)]
-
-#Calculate power spectrum exponent beta and H from beta using linear fitting of the data
-slope_Vdir_deg_adj, intercept_Vdir_deg_adj, r_value_Vdir_deg_adj, p_value_Vdir_deg_adj, std_err_Vdir_deg_adj = sp.linregress(np.log(freqs_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)]), np.log(power_spectrum_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)]))
-y_values_Vdir_deg_adj = slope_Vdir_deg_adj*np.log(freqs_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)])+intercept_Vdir_deg_adj
-
-plt.figure()
-plt.plot(np.log(freqs_Vdir_deg_adj_sliced), np.log(power_spectrum_Vdir_deg_adj_sliced))
-plt.plot(np.log(freqs_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)]), y_values_Vdir_deg_adj)
-plt.title("Freqs vs. power spectrum -fit: advection dir")
-plt.savefig("//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events/Test_event/freq_vs_ps_adv-dir.png")
-
-H_Vdir_deg_adj = (-slope_Vdir_deg_adj-1)/2
-
-##############################################################################
-# ESTIMATE FFT-PARAMETERS
-
-#Replace non-finite values with the minimum value
-R2 = R.copy()
-for i in range(R2.shape[0]):
-    R2[i, ~np.isfinite(R[i, :])] = np.nanmin(R2[i, :])
-
-#https://pysteps.readthedocs.io/en/latest/auto_examples/plot_noise_generators.html
-#Fit the parametric PSD to the observation
-
-beta1s = np.zeros(len(R2))
-beta2s = np.zeros(len(R2))
-w0s = np.zeros(len(R2))
-
-for i in range(0, len(R2)):
-    Fp = pysteps.noise.fftgenerators.initialize_param_2d_fft_filter(R2[i])
-
-    #Compute the observed and fitted 1D PSD
-    L = np.max(Fp["input_shape"])
-    if L % 2 == 0:
-        wn = np.arange(0, int(L / 2) + 1)
-    else:
-        wn = np.arange(0, int(L / 2))
-    iR_, freq = pysteps.utils.rapsd(R2[i], fft_method=np.fft, return_freq=True)
-    f = np.exp(Fp["model"](np.log(wn), *Fp["pars"]))
-
-    # Extract the scaling break in km, beta1 and beta2
-    w0s[i] = L / np.exp(Fp["pars"][0])
-    beta1s[i] = Fp["pars"][2]
-    beta2s[i] = Fp["pars"][3]
-
-##############################################################################
-# CREATE GAUSSIAN BANDPASS FILTER
-
-#Number of cascade levels
-n_cascade_levels = 6
-
-#Bandpass filter
-bp_filter = pysteps.cascade.bandpass_filters.filter_gaussian(R2[0].shape, n_cascade_levels)
-
-#Spatial scale in each cascade level in km
-#https://gmd.copernicus.org/articles/12/4185/2019/, figure1
-L_k = np.zeros([n_cascade_levels, 1])
-L_k[0] = 264
-for i in range(1, len(L_k)):
-    L_k[i] = (L_k[0]/2)/(bp_filter["central_wavenumbers"][i])
+    #Vx = V[0,:,:] #contains the x-components of the motion vectors.
+    #y = V[1,:,:] #contains the y-components of the motion vectors.
+    #The velocities are in units of pixels/timestep.
 
 ##############################################################################
 # ESTIMATE AR(2)-MODEL PARAMETERS
