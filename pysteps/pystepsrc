@@ -89,6 +89,15 @@
             "importer_kwargs": {
                 "gzipped": true
             }
+        },
+		"osapol": {
+            "root_path": "C:/Users/tkokko/Local/pysteps-data/radar/osapol",
+            "path_fmt": "%Y%m%d",
+            "fn_pattern": "arealrainfall_%Y%m%d%H%M_FIN_PCAPPI_500",
+            "fn_ext": "tif",
+            "importer": "fmi_osapol",
+            "timestep": 5,
+            "importer_kwargs": {}
         }
     }
 }
