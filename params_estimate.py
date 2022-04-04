@@ -26,7 +26,7 @@ predefined_value_range = False
 cmap='Blues'
 
 #Number of cascade levels
-n_cascade_levels = 6
+n_cascade_levels = 7
 
 
 
@@ -120,7 +120,7 @@ Vy = np.zeros(len(R)-1)
 R_plot = []
 R_plot2 = []
 ar_order = 2
-gamma = np.empty((n_cascade_levels, ar_order))
+gamma = np.zeros((n_cascade_levels, ar_order))
 gamma_sum = np.zeros((n_cascade_levels, ar_order))
 count = 0
 for i in range(2, len(R)-1):
@@ -133,12 +133,12 @@ for i in range(2, len(R)-1):
     R_prev2 = R[i-2, :, :]
     V1 = oflow_advection(np.stack([R_prev,R_cur],axis=0))
     V2 = oflow_advection(np.stack([R_prev2,R_prev],axis=0))
+    R_cur[~np.isfinite(R_cur)] = np.nanmin(R_cur)
+    R_prev[~np.isfinite(R_prev)] = np.nanmin(R_prev)
+    R_prev2[~np.isfinite(R_prev2)] = np.nanmin(R_prev2)
     R_prev_adv = extrapolator_method(R_prev, V1, 1, "min", **extrap_kwargs)[-1]
     R_prev2_adv = extrapolator_method(R_prev2, V2, 1, "min", **extrap_kwargs)[-1]
     R_prev2_adv = extrapolator_method(R_prev2_adv, V1, 1, "min", **extrap_kwargs)[-1]
-    R_cur[~np.isfinite(R_cur)] = 0
-    R_prev_adv[~np.isfinite(R_prev_adv)] = 0
-    R_prev2_adv[~np.isfinite(R_prev2_adv)] = 0
     R_cur_d.append(pysteps.cascade.decomposition.decomposition_fft(R_cur, bp_filter, normalize=True, compute_stats=True))
     R_prev_adv_d.append(pysteps.cascade.decomposition.decomposition_fft(R_prev_adv, bp_filter, normalize=True, compute_stats=True))
     R_prev2_adv_d.append(pysteps.cascade.decomposition.decomposition_fft(R_prev2_adv, bp_filter, normalize=True, compute_stats=True))

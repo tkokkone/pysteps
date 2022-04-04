@@ -551,9 +551,8 @@ if plot_bpf_weights == 1:
 ar_order = 2
 
 #Create variables that include all gammas and phis of all cascade levels for each time step
-gamma_all = np.zeros([n_cascade_levels*2, len(R2)-2])
-phi_all = np.zeros([n_cascade_levels*3, len(R2)-2])
-
+gamma_all = np.zeros([n_cascade_levels*2, len(R2)-1])
+phi_all = np.zeros([n_cascade_levels*3, len(R2)-1])
 
 nx_field = R2[0].shape[1]
 ny_field = R2[0].shape[0]
@@ -566,30 +565,32 @@ extrap_kwargs["xy_coords"] = xy_coords
 extrap_kwargs["allow_nonfinite_values"] = True
 #Compute the cascade decompositions of the input precipitation fields
 R_prev_adv = []
-R_prev_adv2 = []
-Ylläoleviin listoihin pari alkiota alkuun, niin löytyvät indesksistä samalta kohtaa...
+R_prev2_adv = []
+R_prev_adv.append(0)
+R_prev_adv.append(0)
+R_prev2_adv.append(0)
+R_prev2_adv.append(0)
 for i in range(2,len(R2)-1): 
-    
-    R_prev_adv[i] = extrapolator_method(R2[i-1], V_of[i-1], 1, "min", **extrap_kwargs)[-1]
+    R_prev_adv.append(extrapolator_method(R2[i-1], V_of[i-1], 1, "min", **extrap_kwargs)[-1])
     R_prev2_tmp = extrapolator_method(R2[i-2], V_of[i-2], 1, "min", **extrap_kwargs)[-1]
-    R_prev2_adv[i] = extrapolator_method(R_prev2_tmp, V_of[i-1], 1, "min", **extrap_kwargs)[-1]
+    R_prev2_adv.append(extrapolator_method(R_prev2_tmp, V_of[i-1], 1, "min", **extrap_kwargs)[-1])
+  
+gamma = np.zeros((n_cascade_levels, ar_order))    
+for i in range(2,len(R2)-1):    
+    R_cur_d = []
+    R_prev_adv_d = []
+    R_prev2_adv_d = []
+
+    R_cur_d.append(pysteps.cascade.decomposition.decomposition_fft(R2[i], bp_filter, normalize=True, compute_stats=True))
+    R_prev_adv_d.append(pysteps.cascade.decomposition.decomposition_fft(R_prev_adv[i], bp_filter, normalize=True, compute_stats=True))
+    R_prev2_adv_d.append(pysteps.cascade.decomposition.decomposition_fft(R_prev2_adv[i], bp_filter, normalize=True, compute_stats=True))
+    R_cur_c = pysteps.nowcasts.utils.stack_cascades(R_cur_d, n_cascade_levels, convert_to_full_arrays=True)
+    R_prev_adv_c = pysteps.nowcasts.utils.stack_cascades(R_prev_adv_d, n_cascade_levels, convert_to_full_arrays=True)
+    R_prev2_adv_c = pysteps.nowcasts.utils.stack_cascades(R_prev2_adv_d, n_cascade_levels, convert_to_full_arrays=True)
     
-    
-    R_d = []
-    
-    for j in range(i,i+ar_order+1):
-        R_ = pysteps.cascade.decomposition.decomposition_fft(R2[j, :, :], bp_filter, normalize=True, compute_stats=True)
-        R_d.append(R_)
-        
-    #Rearrange the cascade levels into a four-dimensional array of shape
-    #(n_cascade_levels,ar_order+1,m,n) for the autoregressive model
-    R_c = pysteps.nowcasts.utils.stack_cascades(R_d, n_cascade_levels, convert_to_full_arrays=True)
-    
-    #Compute lag-l temporal autocorrelation coefficients for each cascade level
-    gamma = np.empty((n_cascade_levels, ar_order))
-    MASK_thr = None
-    for k in range(n_cascade_levels):
-        gamma[k, :] = pysteps.timeseries.correlation.temporal_autocorrelation(R_c[k], domain="spatial", mask=MASK_thr)
+    for j in range(n_cascade_levels):
+        gamma[j, :] = pysteps.timeseries.correlation.temporal_autocorrelation(
+            np.stack([R_prev2_adv_c[j],R_prev_adv_c[j],R_cur_c[j]]), domain="spatial")
     
     #Adjust the lag-2 correlation coefficient to ensure that the AR(p) process is stationary
     for l in range(n_cascade_levels):
