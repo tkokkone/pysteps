@@ -57,7 +57,7 @@ block_ysize = 10 #size of one block in y direction (no of grid cells)
 
 
 # Set general simulation parameters
-n_timesteps = 200  # number of timesteps
+n_timesteps = 50  # number of timesteps
 timestep = 5  # timestep length
 seed1 = 124  # seed number 1
 seed2 = 234  # seed number 2

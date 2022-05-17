@@ -1,16 +1,23 @@
-
+# -*- coding: utf-8 -*-
 """
 pysteps.cascade.bandpass_filters
 ================================
+
 Bandpass filters for separating different spatial scales from two-dimensional
 images in the frequency domain.
+
 The methods in this module implement the following interface::
+
     filter_xxx(shape, n, optional arguments)
+
 where shape is the shape of the input field, respectively, and n is the number
 of frequency bands to use.
+
 The output of each filter function is a dictionary containing the following
 key-value pairs:
+
 .. tabularcolumns:: |p{1.8cm}|L|
+
 +-----------------+-----------------------------------------------------------+
 |       Key       |                Value                                      |
 +=================+===========================================================+
@@ -25,13 +32,18 @@ key-value pairs:
 +-----------------+-----------------------------------------------------------+
 | shape           | the shape of the input field in the spatial domain        |
 +-----------------+-----------------------------------------------------------+
+
 where r = int(max(N, M)/2)+1
+
 By default, the filter weights are normalized so that for any Fourier
 wavenumber they sum to one.
+
 Available filters
 -----------------
+
 .. autosummary::
     :toctree: ../generated/
+
     filter_uniform
     filter_gaussian
 """
@@ -40,9 +52,9 @@ import numpy as np
 
 
 def filter_uniform(shape, n):
-    """
-    A dummy filter with one frequency band covering the whole domain. The
+    """A dummy filter with one frequency band covering the whole domain. The
     weights are set to one.
+
     Parameters
     ----------
     shape: int or tuple
@@ -50,6 +62,7 @@ def filter_uniform(shape, n):
         the domain is assumed to have square shape.
     n: int
         Not used. Needed for compatibility with the filter interface.
+
     """
     del n  # Unused
 
@@ -72,11 +85,11 @@ def filter_uniform(shape, n):
 
 
 def filter_gaussian(
-    shape, n, l_0=None, gauss_scale=0.5, gauss_scale_0=0.5, d=1.0, normalize=True
+    shape, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5, d=1.0, normalize=True
 ):
-    """
-    Implements a set of Gaussian bandpass filters in logarithmic frequency
+    """Implements a set of Gaussian bandpass filters in logarithmic frequency
     scale.
+
     Parameters
     ----------
     shape: int or tuple
@@ -86,9 +99,7 @@ def filter_gaussian(
         The number of frequency bands to use. Must be greater than 2.
     l_0: int
         Central frequency of the second band (the first band is always centered
-        at zero). If set to None, l_0 is chosen automatically so that the ratio
-        between successive spatial scales is constant. This value is
-        l_0 = (0.5 * l)**(1 / (n-1)).
+        at zero).
     gauss_scale: float
         Optional scaling prameter. Proportional to the standard deviation of
         the Gaussian weight functions.
@@ -100,14 +111,17 @@ def filter_gaussian(
     normalize: bool
         If True, normalize the weights so that for any given wavenumber
         they sum to one.
+
     Returns
     -------
     out: dict
         A dictionary containing the bandpass filters corresponding to the
         specified frequency bands.
+
     References
     ----------
     :cite:`PCH2018`
+
     """
     if n < 3:
         raise ValueError("n must be greater than 2")
@@ -116,9 +130,6 @@ def filter_gaussian(
         height, width = shape
     except TypeError:
         height, width = (shape, shape)
-
-    if l_0 is None:
-        l_0 = (0.5 * np.min(shape)) ** (1 / (n - 1))
 
     rx = np.s_[: int(width / 2) + 1]
 
@@ -171,7 +182,7 @@ def filter_gaussian(
     return result
 
 
-def _gaussweights_1d(l, n, l_0=None, gauss_scale=0.5, gauss_scale_0=0.5):
+def _gaussweights_1d(l, n, l_0=3, gauss_scale=0.5, gauss_scale_0=0.5):
     e = pow(0.5 * l / l_0, 1.0 / (n - 2))
     r = [(l_0 * pow(e, k - 1), l_0 * pow(e, k)) for k in range(1, n - 1)]
 
@@ -195,7 +206,7 @@ def _gaussweights_1d(l, n, l_0=None, gauss_scale=0.5, gauss_scale_0=0.5):
 
         def __call__(self, x):
             x = log_e(x) - self.c
-            return np.exp(-(x**2.0) / (2.0 * self.s**2.0))
+            return np.exp(-(x ** 2.0) / (2.0 * self.s ** 2.0))
 
     weight_funcs = []
     central_wavenumbers = [0.0]
