@@ -68,9 +68,6 @@ from datetime import datetime
 import statsmodels.api as sm
 import scipy.stats as sp
 import os
-from osgeo import gdal
-
-import rasterio
 
 ##############################################################################
 # TIME USED FOR PARAMETER ESTIMATION: Start timer
@@ -85,18 +82,18 @@ out_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkim
 ##############################################################################
 # OPTIONS TO SAVE PLOTS, ANIMATIONS, AND TABLES
 
-plots_mmh = 1 #areal mean R, WAR, and std time series in mm/h
-plots_dbz = 1 #areal mean R, WAR, and std time series in dBZ
-plot_bl_pars = 1 #broken line parameters for areal mean R and advection (magnitude and direction): a_zero and H
-plot_estimated_ar_pars = 1 #linear fits from which ar-parameters tlen_a, tlen_b, and tlen_c are estimated
-plot_fit_vs_mean = 1 #polynomial fits against areal mean R: WAR, std, beta1, beta2, and scale break
+plots_mmh = 0 #areal mean R, WAR, and std time series in mm/h
+plots_dbz = 0 #areal mean R, WAR, and std time series in dBZ
+plot_bl_pars = 0 #broken line parameters for areal mean R and advection (magnitude and direction): a_zero and H
+plot_estimated_ar_pars = 0 #linear fits from which ar-parameters tlen_a, tlen_b, and tlen_c are estimated
+plot_fit_vs_mean = 0 #polynomial fits against areal mean R: WAR, std, beta1, beta2, and scale break
 
-plot_2dfft = 1 #plot example of 2d fourier spectrum
-save_2dfft = 1 #save example of 2d fourier spectrum
-plot_bpf_weights = 1 #plot bandpass filter weights
-save_bpf_weights = 1 #save example of 2d fourier spectrum
-plot_decomp_example = 1 #plot example of cascade decomposition
-save_decomp_example = 1 #save example of 2d fourier spectrum
+plot_2dfft = 0 #plot example of 2d fourier spectrum
+save_2dfft = 0 #save example of 2d fourier spectrum
+plot_bpf_weights = 0 #plot bandpass filter weights
+save_bpf_weights = 0 #save example of 2d fourier spectrum
+plot_decomp_example = 0 #plot example of cascade decomposition
+save_decomp_example = 0 #save example of 2d fourier spectrum
 
 animation_mmh = 0 #show animation of input radar images in mm/h
 save_animation_mmh = 0 #save animation of input radar images in mm/h (as png-images)
@@ -106,11 +103,11 @@ save_animation_dbz = 0 #save animation of input radar images in dBZ (as png-imag
 animation_blues = 0 #show animation of input radar images in dBZ with Blues-colormap
 save_animation_blues = 0 #save animation of input radar images in dBZ with Blues-colormap (as png-images)
 
-csv_input_ts = 1 #areal mean R, WAR, and std time series in mm/h and dBZ
-csv_advection_ts = 1 # advection components, magnitude, and direction
-csv_fft_par_ts = 1 #fft-parameters: beta1, beta2, and scale break time series
-csv_ar_par_ts = 1 #ar-parameters: gamma1, gamma2, Tau_k, and L_k for each cascade level
-csv_sim_pars = 1 #all estimated parameters needed for simulations
+csv_input_ts = 0 #areal mean R, WAR, and std time series in mm/h and dBZ
+csv_advection_ts = 0 #advection components, magnitude, and direction
+csv_fft_par_ts = 0 #fft-parameters: beta1, beta2, and scale break time series
+csv_ar_par_ts = 0 #ar-parameters: gamma1, gamma2, Tau_k, and L_k for each cascade level
+csv_sim_pars = 0 #all estimated parameters needed for simulations
 
 ##############################################################################
 # INPUT DATA
@@ -512,13 +509,13 @@ for i in range(0, len(R2)):
     f = np.exp(Fp["model"](np.log(wn), *Fp["pars"]))
 
     # Extract the scaling break in km, beta1 and beta2
-    # w0s[i] = 18
-    w0s[i] = L / np.exp(Fp["pars"][0])
+    w0s[i] = 18
+    # w0s[i] = L / np.exp(Fp["pars"][0])
     # 18.812969387097972
     # 18.758204339640127
     # 17.949153140866713
-    beta1s[i] = Fp["pars"][2] #this was 1, had to fix
-    beta2s[i] = Fp["pars"][3] #this was 2, had to fix
+    beta1s[i] = Fp["pars"][1] #this was 1, had to fix
+    beta2s[i] = Fp["pars"][2] #this was 2, had to fix
     
 ##############################################################################  
 # PLOT EXAMPLE OF 2D FOURIER SPRECTRUM

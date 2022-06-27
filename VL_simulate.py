@@ -26,7 +26,7 @@ from pysteps import extrapolation
 ##############################################################################
 # INDIR AND INPUT DATA
 
-in_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/Simuloinnit/Event_6"
+in_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/Simuloinnit/Final_sims/event_6"
 
 #Read in estimated parameters
 all_params = genfromtxt(fname=os.path.join(in_dir, "all_params.csv"), delimiter=',', skip_header=1, usecols=1)
@@ -414,6 +414,7 @@ init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs = dict()
 
 if constant_betas:
+    p_pow[0] = scale_break_wn
     p_pow[2] = beta1
     p_pow[3] = beta2
 else:
@@ -421,7 +422,8 @@ else:
     # p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
     p_pow[2] = (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2) - 0.5 #beta1
     p_pow[3] = (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2) - 0.5 #beta2
-    p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[0] + c_w0 * r_mean[0] ** 2)) #scale break
+    p_pow[0] = scale_break_wn
+    # p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[0] + c_w0 * r_mean[0] ** 2)) #scale break
 
 p_pow_w0 = np.zeros([n_timesteps, 1])
 p_pow_b1 = np.zeros([n_timesteps, 1])
@@ -481,6 +483,7 @@ for i in range(1, n_timesteps):
 # for i in range(n_timesteps):
     # TEEMU: näitten kai kuuluu olla negatiivisia?
     if constant_betas:
+        p_pow[0] = scale_break_wn
         p_pow[2] = beta1
         p_pow[3] = beta2
     else:
@@ -488,7 +491,8 @@ for i in range(1, n_timesteps):
         # p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
         p_pow[2] = (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2) - 0.5 #beta1
         p_pow[3] = (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2) - 0.5 #beta2
-        p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[i] + c_w0 * r_mean[i] ** 2)) #scale break
+        p_pow[0] = scale_break_wn
+        # p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[i] + c_w0 * r_mean[i] ** 2)) #scale break
 
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     # R_prev needs to be saved as R is advected in STEPS loop
