@@ -25,7 +25,7 @@
             }
         },
         "fmi": {
-            "root_path": "C:/Users/tkokko/Local/pysteps-data/radar/fmi",
+            "root_path": "./radar/fmi",
             "path_fmt": "%Y%m%d",
             "fn_pattern": "%Y%m%d%H%M_fmi.radar.composite.lowest_FIN_SUOMI1",
             "fn_ext": "pgm.gz",
@@ -36,7 +36,7 @@
             }
         },
         "mch": {
-            "root_path": "C:/Users/tkokko/Local/pysteps-data/radar/mch",
+            "root_path": "./radar/mch",
             "path_fmt": "%Y%m%d",
             "fn_pattern": "AQC%y%j%H%M?_00005.801",
             "fn_ext": "gif",
@@ -89,6 +89,15 @@
             "importer_kwargs": {
                 "gzipped": true
             }
+		},
+		"osapol": {
+			"root_path": "C:/Users/lindgrv1/pysteps-data/radar/osapol",
+			"path_fmt": "%Y%m%d",
+			"fn_pattern": "arealrainfall_%Y%m%d%H%M_FIN_PCAPPI_500",
+			"fn_ext": "tif",
+			"importer": "fmi_osapol",
+			"timestep": 5,
+			"importer_kwargs": {}
         }
     }
 }

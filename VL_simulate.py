@@ -1,21 +1,50 @@
 #!/bin/env python
 
-import matplotlib.pyplot as plt
+import os
+from numpy import genfromtxt
 import numpy as np
 import math
+import random
+import matplotlib.pyplot as plt
+import rasterio
+from rasterio.transform import from_origin
+from fiona.crs import from_epsg
 
 from pprint import pprint
+
+import pysteps
 from pysteps import nowcasts, noise, utils
 from pysteps.utils import conversion, dimension, transformation
 from pysteps.utils.dimension import clip_domain
 from pysteps.visualization import plot_precip_field, animate, animate_interactive, get_colormap
 from pysteps.postprocessing.probmatching import set_stats
+from pysteps.utils import rapsd
+from pysteps.visualization import plot_spectrum1d
+from pysteps.utils import conversion
+from pysteps import extrapolation
 
-# Initialisation of variables
-stats_kwargs = dict()
-metadata = dict()
+##############################################################################
+# INDIR AND INPUT DATA
 
-# Set parameters controlling simulation
+in_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/Simuloinnit/Event_6"
+
+#Read in estimated parameters
+all_params = genfromtxt(fname=os.path.join(in_dir, "all_params.csv"), delimiter=',', skip_header=1, usecols=1)
+
+#Read in time fft parameters
+fft_params = genfromtxt(fname=os.path.join(in_dir, "fft_params.csv"), delimiter=',', skip_header=1)
+fft_params = np.delete(fft_params, 0, axis=1)
+
+#Read in time series from input data
+data_tss = genfromtxt(fname=os.path.join(in_dir, "data_tss.csv"), delimiter=',', skip_header=1)
+data_tss = np.delete(data_tss, 0, axis=1)
+
+advection_tss = genfromtxt(fname=os.path.join(in_dir, "advection_tss.csv"), delimiter=',', skip_header=1)
+advection_tss = np.delete(advection_tss, 0, axis=1)
+#'Vx', 'Vy', 'Vmag', 'Vdir_rad', 'Vdir_deg', 'Vdir_deg_true'
+
+##############################################################################
+# SET CONTROL PARAMETERS FOR SIMULATION
 
 #Visualization
 grid_on = False #gridlines on or off
@@ -55,12 +84,21 @@ block_ulc = 100 #upper left column of one block
 block_xsize = 20 #size of one block in x direction (no of grid cells)
 block_ysize = 10 #size of one block in y direction (no of grid cells)
 
+##############################################################################
+# SET SIMULATION PARAMETERS (estimated from osapol-event)
+# AND INITIALIZE SOME VARIABLES
+
+# Initialisation of variables
+stats_kwargs = dict()
+metadata = dict()
 
 # Set general simulation parameters
-n_timesteps = 50  # number of timesteps
+n_timesteps = 97  # number of timesteps
 timestep = 5  # timestep length
-seed1 = 124  # seed number 1
-seed2 = 234  # seed number 2
+seed1 = random.randint(1, 10000) # seed number 1: seed number for generation of the first precipitation field
+seed2 = random.randint(1, 10000) # seed number 2: seed number for generation of the first innovation field
+seed_bl = random.randint(1, 10000) #seed for generating broken lines
+seed_random = random.randint(1, 10000) #seed for generating random fields
 nx_field = 512  # number of columns in precip fields
 ny_field = 512  # number of rows in precip fields
 kmperpixel = 1.0  # grid resolution
@@ -73,8 +111,9 @@ metadata["xpixelsize"] = kmperpixel  # grid resolution
 metadata["ypixelsize"] = kmperpixel  # grid resolution
 metadata["zerovalue"] = 0.0  # maybe not in use?
 metadata["yorigin"] = "lower"  # location of grid origin (y), lower or upper
-war_thold = 8.18  # below this value no rain
-rain_zero_value = 3.18  # no rain pixels assigned with this value
+
+rain_zero_value = 3.1830486304816077  # no rain pixels assigned with this value
+war_thold = rain_zero_value + 5  # below this value no rain
 
 # bounding box coordinates for the extracted middel part of the entire domain
 extent = [0, 0, 0, 0]
@@ -83,72 +122,86 @@ extent[1] = 3 * nx_field / 4 * kmperpixel
 extent[2] = ny_field / 4 * kmperpixel
 extent[3] = 3 * ny_field / 4 * kmperpixel
 
-
 # Set power filter parameters
 # where power filter pareameters given not estimated
 noise_method = "parametric_sim"
 fft_method = "numpy"
+
 scale_break = 18  # scale break in km
 scale_break_wn = np.log(nx_field/scale_break)
 constant_betas = False
 beta1 = -1.9
-beta2 = -1.9
+beta2 = -3.5
 
-a_1 = 1.550131395886149 #OSAPOL, provided by Ville
-b_1 = 0.021172968449359647
-c_1 = 0.0019264357240685506
-a_2 = 3.582820233684395
-b_2 = -0.08242383889918288
-c_2 = 0.006099165690311373  
+#scale break parameters a_w0, b_w0, and c_w0 from fitted polynomial line
+a_w0 = all_params[0]
+b_w0 = all_params[1]
+c_w0 = all_params[2]
+#beta1 parameters a_1, b_1, and c_1 from fitted polynomial line
+a_1 = all_params[3]  # a_1...c_2 see Seed et al. 2014
+b_1 = all_params[4]
+c_1 = all_params[5]
+#beta2 parameters a_2, b_2, and c_2 from fitted polynomial line
+a_2 = all_params[6]
+b_2 = all_params[7]
+c_2 = all_params[8]  
 
-p_pow = np.array([scale_break_wn, 0, -2.0, -2.0])  # initialization
+p_pow = np.array([scale_break_wn, 0, beta1, beta2]) # initialization
 
 # Initialise AR parameter array, Seed et al. 2014 eqs. 9-11
-ar_par = np.array([0.13, 1.68, 0.88])  # order: at, bt, ct
-#ar_par = np.array([1.5, 2.5, 1.1])  # order: at, bt, ct TEST
+tlen_a = all_params[9] #lower tlen_a makes result more random, higher tlen_a makes evolution make more sense
+tlen_b = all_params[10] #lower tlen_b makes result more random, higher tlen_b makes evolution make more sense
+tlen_c = all_params[11] #changing this doesnt change the result much 
+ar_par = np.array([tlen_a, tlen_b, tlen_c]) 
 
 # Set std and WAR parameters, Seed et al. eq. 4
-a_v = -5.455962629592088
-b_v = 3.0216340404003423
-c_v = -0.1343959503091776
-a_war = -0.186998012300573
-b_war = 0.06138291149255198
-c_war = -0.0011463266799173295
+a_v = all_params[12]
+b_v = all_params[13]
+c_v = all_params[14]
+a_war = all_params[15]
+b_war = all_params[16]
+c_war = all_params[17]
 min_war = 0.1
 
 # Broken line parameters for field mean
-mu_z = 7.20843781233898 #mean of mean areal reflectivity over the simulation period
-sigma2_z = 5.50191939501378 #variance of mean areal reflectivity over the simulation period
-h_val_z = 0.939519653123402  #structure function exponent
-q_val_z = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_z = 100 #time series decorrelation time [min]
+mu_z = all_params[18] #mean of mean areal reflectivity over the simulation period
+sigma2_z = all_params[19] #variance of mean areal reflectivity over the simulation period
+h_val_z = all_params[20] #structure function exponent
+q_val_z = all_params[30] #scale ratio between levels n and n+1 (constant) [-]
+a_zero_z = all_params[21] #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
-var_tol_z = 1 #acceptable tolerance for variance as ratio of input variance [-]
-mar_tol_z = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:
-
+var_tol_z = all_params[32] #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_z = all_params[33] #acceptable value for first and last elements of the final broken line as ratio of input mean -> maybe should be less than 1 -> 0.2
 
 # Broken line parameters for velocity magnitude
-mu_vmag = 2.19301767418396 #mean of mean areal reflectivity over the simulation period
-sigma2_vmag = 0.0656141226079684 #variance of mean areal reflectivity over the simulation period
-h_val_vmag = -0.0507375296897475  #structure function exponent
-q_val_vmag = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_vmag = 60 #time series decorrelation time [min]
+mu_vmag = all_params[22] #mean of mean areal reflectivity over the simulation period
+sigma2_vmag = all_params[23] #variance of mean areal reflectivity over the simulation period
+h_val_vmag = all_params[24]  #structure function exponent
+q_val_vmag = all_params[30] #scale ratio between levels n and n+1 (constant) [-]
+a_zero_vmag = all_params[25]  #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
-var_tol_vmag = 1 #acceptable tolerance for variance as ratio of input variance [-]
-mar_tol_vmag = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean:    
+var_tol_vmag = all_params[32] #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_vmag = all_params[33] #acceptable value for first and last elements of the final broken line as ratio of input mean 
 
 # Broken line parameters for velocity direction
-mu_vdir = 92.0248637081157 #mean of mean areal reflectivity over the simulation period
-sigma2_vdir = 24.5081700601431 #variance of mean areal reflectivity over the simulation period
-h_val_vdir = 0.0423475643811094  #structure function exponent
-q_val_vdir = 0.8  #scale ratio between levels n and n+1 (constant) [-]
-a_zero_vdir = 15 #time series decorrelation time [min]
+mu_vdir = all_params[26] #mean of mean areal reflectivity over the simulation period
+sigma2_vdir = all_params[27] #variance of mean areal reflectivity over the simulation period
+h_val_vdir = all_params[28]  #structure function exponent
+q_val_vdir = all_params[30] #scale ratio between levels n and n+1 (constant) [-]
+a_zero_vdir = all_params[29]  #time series decorrelation time [min]
 no_bls = 1 #number of broken lines
-var_tol_vdir = 1 #acceptable tolerance for variance as ratio of input variance [-]
-mar_tol_vdir = 1 #acceptable value for first and last elements of the final broken line as ratio of input mean: 
+var_tol_vdir = all_params[32] #acceptable tolerance for variance as ratio of input variance [-]
+mar_tol_vdir = all_params[33] #acceptable value for first and last elements of the final broken line as ratio of input mean:
 
 # Set method for advection
 extrap_method = "semilagrangian_wrap"
+
+#Z-R relationship: Z = a*R^b (Reflectivity)
+#dBZ conversion: dBZ = 10 * log10(Z) (Decibels of Reflectivity)
+#Marshall, J. S., and W. McK. Palmer, 1948: The distribution of raindrops with size. J. Meteor., 5, 165–166.
+a_R=223
+b_R=1.53
+#Leinonen et al. 2012 - A Climatology of Disdrometer Measurements of Rainfall in Finland over Five Years with Implications for Global Radar Observations
 
 R_sim = []
 mean_in = []
@@ -164,9 +217,19 @@ beta1_out = []
 beta2_out = []
 scaleb_out = []
 
+##############################################################################
+# OUTDIR
+
+out_dir = os.path.join(in_dir, "Simulations")
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
+
+out_dir = os.path.join(out_dir, f"Simulation_{seed1}_{seed2}_{seed_bl}_{seed_random}")
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
+
+##############################################################################
 # FUNCTION TO CREATE BROKEN LINES
-
-
 def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs, var_tol, mar_tol):
     """A function to create multiplicative broken lines
 
@@ -291,19 +354,23 @@ def create_broken_lines(mu_z, sigma2_z, H, q, a_zero, tStep, tSerieLength, noBLs
 
     return blines_final
 
+##############################################################################
+# GENERATING BROKEN LINE TIME SERIES FOR MEAN R AND ADVECTION
 
 # Create the field mean for the requested number of simulation time steps
+np.random.seed(seed_bl)
 r_mean = create_broken_lines(mu_z, sigma2_z, h_val_z, q_val_z,
                              a_zero_z, timestep, (n_timesteps-1) * timestep,
                              no_bls, var_tol_z, mar_tol_z)
 
-
 # Create velocity magnitude for the requested number of simulation time steps
+np.random.seed(seed_bl)
 v_mag = create_broken_lines(mu_vmag, sigma2_vmag, h_val_vmag, q_val_vmag,
                             a_zero_vmag, timestep, (n_timesteps-1) * timestep,
                             no_bls, var_tol_vmag, mar_tol_vmag)
 
 # Create velocity direction (deg) for the requested number of simulation time steps
+np.random.seed(seed_bl)
 v_dir = create_broken_lines(mu_vdir, sigma2_vdir, h_val_vdir, q_val_vdir,
                             a_zero_vdir, timestep, (n_timesteps-1) * timestep,
                             no_bls, var_tol_vdir, mar_tol_vdir)
@@ -326,13 +393,17 @@ elif advection_mode == 1 or advection_mode == 2:
 x_values, y_values = np.meshgrid(np.arange(nx_field), np.arange((ny_field)))
 xy_coords = np.stack([x_values, y_values])
 
-###############################################################################
+##############################################################################
+# CREATING FIRST TWO PRECIPITATION FIELDS
+
 # Create the first two precipitation fields, the nuber is determined by the order of
 # the ar process, in this example it is two. The second one is a copy of the first
 # one. The first velocity magnitude is zero.
 
 v_mag[0] = 0.0
 R_ini = []
+
+np.random.seed(seed_random)
 R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 #R_ini.append(np.random.normal(0.0, 1.0, size=(ny_field, nx_field)))
 # Change the type of R to align with pySTEPS
@@ -341,12 +412,29 @@ R_ini = np.concatenate([R_[None, :, :] for R_ in R_ini])
 fft = utils.get_method(fft_method, shape=(ny_field, nx_field), n_threads=1)
 init_noise, generate_noise = noise.get_method(noise_method)
 noise_kwargs = dict()
+
 if constant_betas:
     p_pow[2] = beta1
     p_pow[3] = beta2
 else:
-    p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
-    p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
+    # p_pow[2] = - (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2)
+    # p_pow[3] = - (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2)
+    p_pow[2] = (a_1 + b_1 * r_mean[0] + c_1 * r_mean[0] ** 2) - 0.5 #beta1
+    p_pow[3] = (a_2 + b_2 * r_mean[0] + c_2 * r_mean[0] ** 2) - 0.5 #beta2
+    p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[0] + c_w0 * r_mean[0] ** 2)) #scale break
+
+p_pow_w0 = np.zeros([n_timesteps, 1])
+p_pow_b1 = np.zeros([n_timesteps, 1])
+p_pow_b2 = np.zeros([n_timesteps, 1])
+p_pow_w0[0] = p_pow[0]
+p_pow_b1[0] = p_pow[2]
+p_pow_b2[0] = p_pow[3]
+
+w0_sim = np.zeros([n_timesteps, 1])
+w0_sim_km = np.zeros([n_timesteps, 1])
+beta1_sim = np.zeros([n_timesteps, 1])
+beta2_sim = np.zeros([n_timesteps, 1])
+
 pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
 
 R = []
@@ -372,7 +460,6 @@ R.append(generate_noise(
 ))
 R = np.concatenate([R_[None, :, :] for R_ in R])
 
-
 # Plot the rainfall field
 #plot_precip_field(R[-1, :, :])
 #plt.show()
@@ -385,24 +472,24 @@ R[~np.isfinite(R)] = -15.0
 # Nicely print the metadata
 # pprint(metadata)
 
-
-###############################################################################
-# Simulation loop with STEPS
+##############################################################################
+# SIMULATION LOOP WITH STEPS
 
 nowcast_method = nowcasts.get_method("steps_sim")
 
-#f = open("../../Local/tmp/mean_std.txt", "a")
-for i in range(n_timesteps):
+for i in range(1, n_timesteps):
+# for i in range(n_timesteps):
     # TEEMU: näitten kai kuuluu olla negatiivisia?
     if constant_betas:
         p_pow[2] = beta1
         p_pow[3] = beta2
     else:
-        p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
-        p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
-    # Selekeämmät muutokset in ja out arvojen tarkasukseen
-    #p_pow[2] = p_pow[2] + 0.2
-    #p_pow[3] = p_pow[3] + 0.2
+        # p_pow[2] = - (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2)
+        # p_pow[3] = - (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2)
+        p_pow[2] = (a_1 + b_1 * r_mean[i] + c_1 * r_mean[i] ** 2) - 0.5 #beta1
+        p_pow[3] = (a_2 + b_2 * r_mean[i] + c_2 * r_mean[i] ** 2) - 0.5 #beta2
+        p_pow[0] = np.log(nx_field/(a_w0 + b_w0 * r_mean[i] + c_w0 * r_mean[i] ** 2)) #scale break
+
     pp = init_noise(R_ini, p_pow, fft_method=fft, **noise_kwargs)
     # R_prev needs to be saved as R is advected in STEPS loop
     R_prev = R[1].copy()
@@ -422,12 +509,21 @@ for i in range(n_timesteps):
         normalize_field=normalize_field,
     )
 
-    #f.write("mean: {a: 8.3f} std: {b: 8.3f} \n".format(a=R_new.mean(), b=R_new.std()))
+    # w0_km = nx_field / np.exp(Fp["pars"][0])
+    
     R[0] = R_prev
+    
+    p_pow_w0[i] = p_pow[0]
+    p_pow_b1[i] = p_pow[2]
+    p_pow_b2[i] = p_pow[3]
+    w0_sim[i-1] = Fp["pars"][0]
+    w0_sim_km[i-1] = nx_field / np.exp(w0_sim[i-1])
+    beta1_sim[i-1] = Fp["pars"][1]
+    beta2_sim[i-1] = Fp["pars"][2]
+    
     R[1] = R_new
-    R[2] = generate_noise(
-        pp, randstate=None, fft_method=fft, domain=domain
-    )
+    R[2] = generate_noise(pp, randstate=None, fft_method=fft, domain=domain)
+    
     stats_kwargs["mean"] = r_mean[i]
     stats_kwargs["std"] = a_v + b_v * r_mean[i] + c_v * r_mean[i] ** 2
     stats_kwargs["war"] = a_war + b_war * r_mean[i] + c_war * r_mean[i] ** 2
@@ -437,6 +533,7 @@ for i in range(n_timesteps):
     stats_kwargs["rain_zero_value"] = rain_zero_value
     if set_stats_active == True:
         R_new = set_stats(R_new, stats_kwargs)
+        
     Fp = noise.fftgenerators.initialize_param_2d_fft_filter(
         R_new, scale_break=scale_break_wn)
     w0_km = nx_field / np.exp(scale_break_wn)
@@ -448,8 +545,8 @@ for i in range(n_timesteps):
     std_out.append(R_new.std())
     war_out.append(war)
 
-    #R_new, metadata_clip = clip_domain(R_new, metadata, extent)
-    #R_new = transformation.dB_transform(R_new, threshold=-10.0, inverse=True)[0]
+    R_new, metadata_clip = clip_domain(R_new, metadata, extent)
+
     R_sim.append(R_new)
     mean_in.append(stats_kwargs["mean"])
     std_in.append(stats_kwargs["std"])
@@ -492,3 +589,52 @@ if show_cumul_plot:
     plt.figure()
     plt.imshow(R_acc, cmap ="Blues", alpha = 0.7, interpolation ='bilinear', extent = extent)
     plt.colorbar()
+
+##############################################################################
+# PLOT THE OBSERVED 1D POWER SPECTRUM AND THE MODEL
+
+#The parametric model uses a piece-wise linear function with two spectral slopes (beta1 and beta2) and one breaking point
+#https://pysteps.readthedocs.io/en/latest/auto_examples/plot_noise_generators.html
+
+#Compute the observed and fitted 1D PSD
+L = np.max(Fp["input_shape"])
+if L % 2 == 1:
+    wn = np.arange(0, int(L / 2) + 1)
+else:
+    wn = np.arange(0, int(L / 2))
+R_, freq = rapsd(R_sim[0], fft_method=np.fft, return_freq=True)
+f = np.exp(Fp["model"](np.log(wn), *Fp["pars"]))
+
+#Extract the scaling break in km, beta1 and beta2
+w0 = scale_break
+b1 = Fp["pars"][1]
+b2 = Fp["pars"][2]
+
+fig, ax = plt.subplots()
+plot_scales = [512, 256, 128, 64, 32, 16, 8, 4, 2]
+plot_spectrum1d(
+    freq,
+    R_,
+    x_units="km",
+    y_units="dBZ",
+    color="k",
+    ax=ax,
+    label="Observed",
+    wavelength_ticks=plot_scales,
+)
+plot_spectrum1d(
+    freq[:-1],
+    f,
+    x_units="km",
+    y_units="dBZ",
+    color="r",
+    ax=ax,
+    label="Fit",
+    wavelength_ticks=plot_scales,
+)
+plt.legend()
+ax.set_title(
+    "Radially averaged log-power spectrum of R\n"
+    r"$\omega_0=%.0f km, \beta_1=%.1f, \beta_2=%.1f$" % (w0, b1, b2)
+)
+plt.show()

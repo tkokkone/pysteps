@@ -1,5 +1,5 @@
 # pysteps development environment
-name: pysteps_dev
+name: pysteps_dev_new
 channels:
   - conda-forge
   - defaults
@@ -30,3 +30,6 @@ dependencies:
   - cartopy>=0.18
   - scikit-image
   - pandas
+  - gdal
+  - fiona
+  - statsmodels

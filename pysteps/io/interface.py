@@ -33,6 +33,7 @@ _importer_methods = dict(
     opera_hdf5=importers.import_opera_hdf5,
     knmi_hdf5=importers.import_knmi_hdf5,
     saf_crri=importers.import_saf_crri,
+	fmi_osapol=importers.import_fmi_osapol,
 )
 
 _exporter_methods = dict(
