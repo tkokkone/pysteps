@@ -12,8 +12,10 @@ import scipy.stats as sp
 from pysteps.visualization import plot_precip_field, animate_interactive
 
 #
-AR_length = 24
+AR_length = 36
 thold = 0.1
+no_prev_files = 76 #97
+tstep = 5
 
 #Read in the event with pySTEPS
 date = datetime.strptime("201408071800", "%Y%m%d%H%M") #last radar image of the event
@@ -29,7 +31,7 @@ importer_kwargs = data_source["importer_kwargs"]
 timestep = data_source["timestep"]
 
 #Find the input files from the archive
-fns = pysteps.io.archive.find_by_date(date, root_path, path_fmt, fn_pattern, fn_ext, timestep=5, num_prev_files=97)
+fns = pysteps.io.archive.find_by_date(date, root_path, path_fmt, fn_pattern, fn_ext, timestep=tstep, num_prev_files=no_prev_files)
 
 #Select the importer
 importer = pysteps.io.get_method(importer_name, "importer")
@@ -60,23 +62,25 @@ extrap_kwargs = dict()
 extrap_kwargs["xy_coords"] = xy_coords
 extrap_kwargs["allow_nonfinite_values"] = True
 
-gamma = np.zeros((len(R)-2,AR_length))
-for i in range(AR_length, 49): #range(AR_length, len(R))
-    R2 = []
-    MASK_thr = np.ones(R[0].shape, dtype=bool)
+gamma = np.zeros((len(R)-AR_length,AR_length))
+rain_pixels = np.zeros((len(R)-AR_length,AR_length))
+for i in range(AR_length, len(R)):
     for j in range(1,AR_length+1):
+        MASK_thr = np.ones(R[0].shape, dtype=bool)
+        R2 = []
         R_tmp = R[i-AR_length+j-1]
-        MASK_thr[R_tmp < thold] = False
         for k in range(1,AR_length-j+2): 
             V = oflow_advection(np.stack([R_tmp,R[i-AR_length+j-1+k]],axis=0))
             R_tmp = extrapolator_method(R_tmp , V, 1, "min", **extrap_kwargs)[-1]
         R2.append(R_tmp)
-    R2.append(R[i])
-    MASK_thr[R[i] < thold] = False
-    #MASK_thr = np.ones(R[0].shape, dtype=bool)
-    gamma[i-2,:] = pysteps.timeseries.correlation.temporal_autocorrelation(
-            np.stack(R2), mask=MASK_thr, domain="spatial")
+        MASK_thr[R_tmp < thold] = False
+        R2.append(R[i])
+        MASK_thr[R[i] < thold] = False
+        gamma[i-AR_length,AR_length-j] = pysteps.timeseries.correlation.temporal_autocorrelation(
+            np.stack(R2), mask=MASK_thr, domain="spatial")[0]
+        rain_pixels[i-AR_length,AR_length-j] = MASK_thr.sum()
 gamma_mean = gamma.mean(axis=0)
+rain_pixels_mean = rain_pixels.mean(axis=0)
 x = [i for i in range(1,AR_length+1)]
 plt.figure()
 plt.plot(x,gamma_mean)
