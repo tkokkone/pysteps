@@ -16,6 +16,7 @@ AR_length = 36
 thold = 0.1
 no_prev_files = 76 #97
 tstep = 5
+data_type = 1
 
 #Read in the event with pySTEPS
 date = datetime.strptime("201408071800", "%Y%m%d%H%M") #last radar image of the event
@@ -69,8 +70,13 @@ for i in range(AR_length, len(R)):
         MASK_thr = np.ones(R[0].shape, dtype=bool)
         R2 = []
         R_tmp = R[i-AR_length+j-1]
-        for k in range(1,AR_length-j+2): 
-            V = oflow_advection(np.stack([R_tmp,R[i-AR_length+j-1+k]],axis=0))
+        for k in range(1,AR_length-j+2):
+            if data_type == 1:
+                V = oflow_advection(np.stack([R_tmp,R[i-AR_length+j-1+k]],axis=0))
+            else:
+                 vx = vx_sim[i-AR_length+j-1+k]
+                 vy = vy_sim[i-AR_length+j-1+k]
+                 V = [vx*np.ones(R[0].shape),vy*np.ones(R[0].shape)]
             R_tmp = extrapolator_method(R_tmp , V, 1, "min", **extrap_kwargs)[-1]
         R2.append(R_tmp)
         MASK_thr[R_tmp < thold] = False
