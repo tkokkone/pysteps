@@ -15,14 +15,19 @@ import scipy.stats as sp
 from pysteps.visualization import plot_precip_field, animate_interactive
 from pysteps.utils import conversion
 
-#
+#Events
+#event 1. last radar image: 201306271955 -> number of previous files: 141
+#event 3. last radar image: 201310290345 -> number of previous files: 115
+#event 6. last radar image: 201408071800 -> number of previous files: 97
+no_prev_files = 141 
+last_image = "201306271955" #%Y%m%d%H%M
+
 AR_length = 20
 thold = 0.1
-no_prev_files = 76 #97
 tstep = 5
-data_type = 2 #1: observations, 2: simulations
-break_after_no_timesteps = AR_length + 20 #exit computation after break_after_no_timesteps
-plot_time_step = AR_length + 2 #diagnostic plot at this time step
+data_type = 1 #1: observations, 2: simulations
+break_after_no_timesteps = AR_length + 200 #exit computation after break_after_no_timesteps
+plot_time_step = AR_length + 200 #diagnostic plot at this time step
 plot_lag = 2 #diagnostic plot at this lag
 #in_dir: directory where simulation files are, assumes that radar tiffs are in
 #a subdirectory called Event_tiffs
@@ -38,7 +43,7 @@ predefined_value_range = False #predefined value range in colorbar on or off
 
 if data_type == 1:
     #Read in the event with pySTEPS
-    date = datetime.strptime("201408071800", "%Y%m%d%H%M") #last radar image of the event
+    date = datetime.strptime(last_image, "%Y%m%d%H%M") #last radar image of the event
     data_source = pysteps.rcparams.data_sources["osapol"]
 
     #Load the data from the archive
@@ -80,8 +85,8 @@ if data_type == 2:
             img_path = os.path.join(tiff_dir, img_file)
             ds = gdal.Open(img_path)
             R_dbz = np.array(ds.GetRasterBand(1).ReadAsArray())
-            R_mmh, metadata = conversion.to_rainrate(R_dbz, metadata, zr_a=223, zr_b=1.53)
-            R_mmh[R_mmh < metadata["threshold"]] = metadata["zerovalue"]
+            R_mmh, metadata_mmh = conversion.to_rainrate(R_dbz, metadata, zr_a=223, zr_b=1.53)
+            R_mmh[R_mmh < metadata_mmh["threshold"]] = metadata_mmh["zerovalue"]
             R_list.append(R_mmh)
     R = np.concatenate([R_[None, :, :] for R_ in R_list])
 #    for i in range(0, len(files)):   
@@ -139,10 +144,9 @@ for i in range(AR_length, len(R)):
         gamma[i-AR_length,AR_length-j] = pysteps.timeseries.correlation.temporal_autocorrelation(
             np.stack(R2), mask=MASK_thr, domain="spatial")[0]
         rain_pixels[i-AR_length,AR_length-j] = MASK_thr.sum()
-        if i == plot_time_step and j == plot_lag:
+        if i == plot_time_step and i - (i-AR_length+j-1) == plot_lag:
             R_plot = np.concatenate([R_[None, :, :] for R_ in R_test_plot])
             ani = animate_interactive(R_plot,grid_on,colorbar_on, predefined_value_range,cmap)
-            input("Press Enter to continue...")
 gamma_mean = gamma.mean(axis=0)
 rain_pixels_mean = rain_pixels.mean(axis=0)
 x = [i for i in range(1,AR_length+1)]
