@@ -22,10 +22,11 @@ from pysteps.utils import conversion
 no_prev_files = 141 
 last_image = "201306271955" #%Y%m%d%H%M
 
+correlation_type = 0 #0: Eulerian, 1: Lagrangian
+data_type = 2 #1: observations, 2: simulations
 AR_length = 20
 thold = 0.1
 tstep = 5
-data_type = 1 #1: observations, 2: simulations
 break_after_no_timesteps = AR_length + 200 #exit computation after break_after_no_timesteps
 plot_time_step = AR_length + 200 #diagnostic plot at this time step
 plot_lag = 2 #diagnostic plot at this lag
@@ -126,15 +127,16 @@ for i in range(AR_length, len(R)):
         R_test_plot = []
         R_tmp = R[i-AR_length+j-1]
         R_test_plot.append(R_tmp)
-        for k in range(1,AR_length-j+2):
-            if data_type == 1:
-                V = oflow_advection(np.stack([R_tmp,R[i-AR_length+j-1+k]],axis=0))
-            else:
-                 vx = vx_sim[i-AR_length+j-2+k]
-                 vy = vy_sim[i-AR_length+j-2+k]
-                 V = [vx*np.ones(R[0].shape),vy*np.ones(R[0].shape)]
-                 V = np.concatenate([V_[None, :, :] for V_ in V])
-            R_tmp = extrapolator_method(R_tmp , V, 1, "min", **extrap_kwargs)[-1]
+        if correlation_type == 1:
+            for k in range(1,AR_length-j+2):
+                if data_type == 1:
+                    V = oflow_advection(np.stack([R_tmp,R[i-AR_length+j-1+k]],axis=0))
+                else:
+                     vx = vx_sim[i-AR_length+j-2+k]
+                     vy = vy_sim[i-AR_length+j-2+k]
+                     V = [vx*np.ones(R[0].shape),vy*np.ones(R[0].shape)]
+                     V = np.concatenate([V_[None, :, :] for V_ in V])
+                R_tmp = extrapolator_method(R_tmp , V, 1, "min", **extrap_kwargs)[-1]
         R2.append(R_tmp)
         R_test_plot.append(R_tmp)
         MASK_thr[R_tmp < thold] = False
