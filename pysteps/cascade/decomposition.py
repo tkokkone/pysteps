@@ -1,23 +1,16 @@
-# -*- coding: utf-8 -*-
 """
 pysteps.cascade.decomposition
 =============================
-
 Methods for decomposing two-dimensional fields into multiple spatial scales and
 recomposing the individual scales to obtain the original field.
-
 The methods in this module implement the following interface::
-
     decomposition_xxx(field, bp_filter, **kwargs)
     recompose_xxx(decomp, **kwargs)
-
 where field is the input field and bp_filter is a dictionary returned by a
 filter method implemented in :py:mod:`pysteps.cascade.bandpass_filters`. The
 decomp argument is a decomposition obtained by calling decomposition_xxx.
-Optional parameters can be passed in
-the keyword arguments. The output of each method is a dictionary with the
-following key-value pairs:
-
+Optional parameters can be passed in the keyword arguments. The output of each
+method is a dictionary with the following key-value pairs:
 +-------------------+----------------------------------------------------------+
 |        Key        |                      Value                               |
 +===================+==========================================================+
@@ -33,10 +26,8 @@ following key-value pairs:
 +-------------------+----------------------------------------------------------+
 |  normalized       | are the cascade levels normalized: True or False         |
 +-------------------+----------------------------------------------------------+
-
 The following key-value pairs are optional. They are included in the output if
 ``kwargs`` contains the "compute_stats" key with value set to True:
-
 +-------------------+----------------------------------------------------------+
 |        Key        |                      Value                               |
 +===================+==========================================================+
@@ -44,10 +35,8 @@ The following key-value pairs are optional. They are included in the output if
 +-------------------+----------------------------------------------------------+
 |  stds             | list of standard deviations for each cascade level       |
 +-------------------+----------------------------------------------------------+
-
 The following key-value pairs are included in the output if ``kwargs`` contains
 the key "output_domain" with value set to "spectral":
-
 +-------------------+----------------------------------------------------------+
 |        Key        |                      Value                               |
 +===================+==========================================================+
@@ -60,14 +49,10 @@ the key "output_domain" with value set to "spectral":
 |                   | corresponding Fourier wavenumber is included in the      |
 |                   | decomposition                                            |
 +-------------------+----------------------------------------------------------+
-
-
 Available methods
 -----------------
-
 .. autosummary::
     :toctree: ../generated/
-
     decomposition_fft
     recompose_fft
 """
@@ -77,9 +62,9 @@ from pysteps import utils
 
 
 def decomposition_fft(field, bp_filter, **kwargs):
-    """Decompose a two-dimensional input field into multiple spatial scales by
+    """
+    Decompose a two-dimensional input field into multiple spatial scales by
     using the Fast Fourier Transform (FFT) and a set of bandpass filters.
-
     Parameters
     ----------
     field: array_like
@@ -88,7 +73,6 @@ def decomposition_fft(field, bp_filter, **kwargs):
     bp_filter: dict
         A filter returned by a method implemented in
         :py:mod:`pysteps.cascade.bandpass_filters`.
-
     Other Parameters
     ----------------
     fft_method: str or tuple
@@ -119,14 +103,16 @@ def decomposition_fft(field, bp_filter, **kwargs):
         Applicable if output_domain is "spectral". If set to True, only the
         parts of the Fourier spectrum with non-negligible filter weights are
         stored. Defaults to False.
-
+    subtract_mean: bool
+        If set to True, subtract the mean value before the decomposition and
+        store it to the output dictionary. Applicable if input_domain is
+        "spatial". Defaults to False.
     Returns
     -------
     out: ndarray
         A dictionary described in the module documentation.
         The number of cascade levels is determined from the filter
         (see :py:mod:`pysteps.cascade.bandpass_filters`).
-
     """
     fft = kwargs.get("fft_method", "numpy")
     if isinstance(fft, str):
@@ -137,6 +123,7 @@ def decomposition_fft(field, bp_filter, **kwargs):
     output_domain = kwargs.get("output_domain", "spatial")
     compute_stats = kwargs.get("compute_stats", True)
     compact_output = kwargs.get("compact_output", False)
+    subtract_mean = kwargs.get("subtract_mean", False)
 
     if normalize and not compute_stats:
         compute_stats = True
@@ -192,6 +179,11 @@ def decomposition_fft(field, bp_filter, **kwargs):
     result = {}
     means = []
     stds = []
+
+    if subtract_mean and input_domain == "spatial":
+        field_mean = np.mean(field)
+        field = field - field_mean
+        result["field_mean"] = field_mean
 
     if input_domain == "spatial":
         field_fft = fft.rfft2(field)
@@ -253,14 +245,13 @@ def decomposition_fft(field, bp_filter, **kwargs):
 
 
 def recompose_fft(decomp, **kwargs):
-    """Recompose a cascade obtained with decomposition_fft by inverting the
+    """
+    Recompose a cascade obtained with decomposition_fft by inverting the
     normalization and summing the cascade levels.
-
     Parameters
     ----------
     decomp: dict
         A cascade decomposition returned by decomposition_fft.
-
     Returns
     -------
     out: numpy.ndarray
@@ -274,7 +265,7 @@ def recompose_fft(decomp, **kwargs):
     if not decomp["normalized"] and not (
         decomp["domain"] == "spectral" and decomp["compact_output"]
     ):
-        return np.sum(levels, axis=0)
+        result = np.sum(levels, axis=0)
     else:
         if decomp["compact_output"]:
             weight_masks = decomp["weight_masks"]
@@ -289,4 +280,7 @@ def recompose_fft(decomp, **kwargs):
             result = [levels[i] * sigma[i] + mu[i] for i in range(len(levels))]
             result = np.sum(np.stack(result), axis=0)
 
-        return result
+    if "field_mean" in decomp:
+        result += decomp["field_mean"]
+
+    return result

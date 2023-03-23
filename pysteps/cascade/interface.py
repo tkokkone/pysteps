@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 pysteps.cascade.interface
 =========================
-
 Interface for the cascade module.
-
 .. autosummary::
     :toctree: ../generated/
-
     get_method
 """
 
@@ -25,9 +21,7 @@ def get_method(name):
     method corresponding to the given name. For the latter, two functions are
     returned: the first is for the decomposing and the second is for recomposing
     the cascade.
-
     Filter methods:
-
     +-------------------+------------------------------------------------------+
     |     Name          |              Description                             |
     +===================+======================================================+
@@ -37,9 +31,7 @@ def get_method(name):
     |  uniform          | implementation of a filter where all weights are set |
     |                   | to one                                               |
     +-------------------+------------------------------------------------------+
-
     Decomposition/recomposition methods:
-
     +-------------------+------------------------------------------------------+
     |     Name          |              Description                             |
     +===================+======================================================+
@@ -47,7 +39,6 @@ def get_method(name):
     |                   | the fast Fourier Transform (FFT) and a set of        |
     |                   | bandpass filters                                     |
     +-------------------+------------------------------------------------------+
-
     """
 
     if isinstance(name, str):
