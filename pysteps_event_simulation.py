@@ -86,7 +86,7 @@ plot_simulated_w0 = 0
 plot_stat_correction = 0
 plot_simulated_vs_osapol = 0
 
-plot_1dps = 0 #plot example of 1d power spectrum
+plot_1dps = 1 #plot example of 1d power spectrum
 save_1dps = 0 #save example of 1d power spectrum
 
 animation_dbz = 0 #show animation of input radar images in dBZ

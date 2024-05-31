@@ -1,4 +1,9 @@
-#!/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug 14 09:27:33 2023
+
+@author: lindgrv1
+"""
 
 import time
 import os
@@ -26,13 +31,8 @@ from pysteps.utils import conversion
 from pysteps import extrapolation
 
 ##############################################################################
-# TIME USED FOR PARAMETER ESTIMATION: Start timer
-
-run_start_0 = time.perf_counter()
-
-##############################################################################
 #Wanted number of simulations
-n_simulations = 1
+n_simulations = 2
 n_sim = 0
 while n_sim < n_simulations:
 
@@ -50,8 +50,7 @@ while n_sim < n_simulations:
     ##############################################################################
     # INDIR AND INPUT DATA
     
-    in_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/Simulations_pysteps/Event3_new"
-    # in_dir = r"W:/lindgrv1/Simuloinnit/Simulations_pysteps/Event3_new"
+    in_dir = r"W:/lindgrv1/Simuloinnit/Simulations_pysteps/Event1_new"
     
     #Optimized a_zero
     azero_dir = os.path.join(in_dir, "Model_performance")
@@ -139,7 +138,7 @@ while n_sim < n_simulations:
         # event 6: 98
     
     # Set general simulation parameters
-    n_timesteps = 116  # number of timesteps
+    n_timesteps = 142  # number of timesteps
     timestep = 5  # timestep length
     nx_field = 512  # number of columns in precip fields
     ny_field = 512  # number of rows in precip fields
@@ -423,10 +422,12 @@ while n_sim < n_simulations:
     seed_random = random.randint(1, 100000) #seed for generating random fields
     #priviously this was 10000
     
+    seed_bl = 10
+    
     ##############################################################################
     # OUTDIR
     
-    out_dir = os.path.join(in_dir, "Simulations_long")
+    out_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Figures/To_be_submitted/review/bl_test"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     
@@ -438,6 +439,8 @@ while n_sim < n_simulations:
     # GENERATING BROKEN LINE TIME SERIES FOR MEAN R AND ADVECTION
     
     no_bls = 1
+    
+
     # Create the field mean for the requested number of simulation time steps
     np.random.seed(seed_bl) #set seed
     
@@ -982,10 +985,4 @@ while n_sim < n_simulations:
     plt.close("all")
     n_sim += 1
     
-##############################################################################
-# TIME USED FOR PARAMETER ESTIMATION: End timer
-
-run_end_0 = time.perf_counter()
-run_dur_0 = run_end_0 - run_start_0
-print(run_dur_0 / 60)
 

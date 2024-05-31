@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-pysteps_parameter_estimation.py
+Created on Tue Aug 29 09:58:14 2023
 
-Scrip to estimate all the parameters for the model, as well as statistics and time series for several variables:
-    - Time series:
-        - areal mean rainfall
-        - wetted area ratio
-        - standard deviation
-        - advection components, magnitude, and direction
-        - fft-parameters: beta1, beta2, and w0 (scale break)
+Estimation of all model parameters, as well as statistics and timeseries for several variables. 
 
-    - Parameters:
-        - broken line parameters: q, no_bls, var_tol, and mar_tol
-        - broken line parameters for field mean: mu_z, sigma2_z, h_val_z, and a_zero_z
-        - broken line parameters for velocity magnitude: mu_vmag, sigma2_vmag, h_val_vmag, and a_zero_vmag 
-        - broken line parameters for velocity direction: mu_vdir, sigma2_vdir, h_val_vdir, and a_zero_vdir 
-        - ar-parameters for all cascade levels: gamma1, gamma2, Tau_k, and L_k
-        - ar-parameters: tlen_a, tlen_b, and tlen_c
-        - scale break parameters: a_w0, b_w0, and c_w0
-        - beta1 parameters: a_1, b_1, and c_1
-        - beta2 parameters: a_2, b_2, and c_2
-        - std parameters: a_v, b_v, and c_v
-        - war parameters: a_war, b_war, and c_war
-
+Time series:
+    - areal mean rainfall
+    - wetted area ratio
+    - standard deviation
+    - advection components, magnitude, and direction
+    - fft-parameters: beta1, beta2, and w0 (scale break)
+Parameters:
+    - broken line parameters: q, no_bls, var_tol, and mar_tol
+    - broken line parameters for field mean: mu_z, sigma2_z, h_val_z, and a_zero_z
+    - broken line parameters for velocity magnitude: mu_vmag, sigma2_vmag, h_val_vmag, and a_zero_vmag 
+    - broken line parameters for velocity direction: mu_vdir, sigma2_vdir, h_val_vdir, and a_zero_vdir 
+    - ar-parameters for all cascade levels: gamma1, gamma2, Tau_k, and L_k
+    - ar-parameters: tlen_a, tlen_b, and tlen_c
+    - scale break parameters: a_w0, b_w0, and c_w0
+    - beta1 parameters: a_1, b_1, and c_1
+    - beta2 parameters: a_2, b_2, and c_2
+    - std parameters: a_v, b_v, and c_v
+    - war parameters: a_war, b_war, and c_war
+        
 Requirements:
     - pysteps
     - numpy
@@ -40,21 +40,9 @@ References:
     - Marshall and Palmer. 1948: The distribution of raindrops with size
     - Seed et al. 2000: A multiplicative broken-line model for time series of mean areal rainfall
     - Seed et al. 2014: Stochastic simulation of space-time rainfall patterns for the Brisbane River catchment
-
-Created on Tue Mar 22 08:07:57 2022
-
-@author: Ville Lindgren
+@author: lindgrv1
 """
 
-# Events used in the study:
-# 1. last radar image: 201306271955 -> number of previous files: 141
-# 3. last radar image: 201310290345 -> number of previous files: 115
-# 6. last radar image: 201408071800 -> number of previous files: 97
-# Events are trimmed to start when areal mean is 5 dbz or higher, and to end when it is lower than 5 dbz.
-# //home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/events
-# C:/Users/lindgrv1/pysteps-data/radar/osapol
-
-##############################################################################
 # IMPORT PACKAGES
 
 import numpy as np
@@ -70,11 +58,6 @@ import scipy.stats as sp
 import os
 
 ##############################################################################
-# TIME USED FOR PARAMETER ESTIMATION: Start timer
-
-run_start_0 = time.perf_counter()
-
-##############################################################################
 # OUTDIR
 
 out_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkimus/Simulations_pysteps/Event1_new"
@@ -82,26 +65,12 @@ out_dir = r"//home.org.aalto.fi/lindgrv1/data/Desktop/Vaitoskirjaprojekti/Tutkim
 ##############################################################################
 # OPTIONS TO SAVE PLOTS, ANIMATIONS, AND TABLES
 
-plots_mmh = 0 #areal mean R, WAR, and std time series in mm/h
-plots_dbz = 0 #areal mean R, WAR, and std time series in dBZ
-plot_bl_pars = 0 #broken line parameters for areal mean R and advection (magnitude and direction): a_zero and H
-plot_estimated_ar_pars = 0 #linear fits from which ar-parameters tlen_a, tlen_b, and tlen_c are estimated
-plot_fit_vs_mean = 0 #polynomial fits against areal mean R: WAR, std, beta1, beta2, and scale break
-
-plot_2dfft = 0 #plot example of 2d fourier spectrum
-save_2dfft = 0 #save example of 2d fourier spectrum
-plot_bpf_weights = 0 #plot bandpass filter weights
-save_bpf_weights = 0 #save example of 2d fourier spectrum
-plot_decomp_example = 0 #plot example of cascade decomposition
-save_decomp_example = 0 #save example of 2d fourier spectrum
-
-animation_mmh = 0 #show animation of input radar images in mm/h
-save_animation_mmh = 0 #save animation of input radar images in mm/h (as png-images)
-animation_dbz = 0 #show animation of input radar images in dBZ
-save_animation_dbz = 0 #save animation of input radar images in dBZ (as png-images)
+#set value to 1 if you want to turn these option on!!!
 
 animation_blues = 0 #show animation of input radar images in dBZ with Blues-colormap
 save_animation_blues = 0 #save animation of input radar images in dBZ with Blues-colormap (as png-images)
+
+plots_dbz = 0 #areal mean R, WAR, and std time series in dBZ
 
 csv_input_ts = 0 #areal mean R, WAR, and std time series in mm/h and dBZ
 csv_advection_ts = 0 #advection components, magnitude, and direction
@@ -114,8 +83,7 @@ csv_sim_pars = 0 #all estimated parameters needed for simulations
 
 # Events used in the study:
 # 1. last radar image: 201306271955 -> number of previous files: 141
-# 3. last radar image: 201310290345 -> number of previous files: 115
-# 6. last radar image: 201408071800 -> number of previous files: 97
+# 2. last radar image: 201310290345 -> number of previous files: 115
 
 #Read in the event with pySTEPS
 date = datetime.strptime("201306271955", "%Y%m%d%H%M") #last radar image of the event
@@ -146,22 +114,6 @@ metadata["unit"] = "mm/h"
 #Values less than threshold to zero
 R[R<0.1] = 0
 
-#Plot event as a animation
-if animation_mmh == 1:
-    plt.figure()
-    if save_animation_mmh == 1:
-        path_outputs1 = os.path.join(out_dir, "input_pngs")
-        if not os.path.exists(path_outputs1):
-            os.makedirs(path_outputs1)
-        path_outputs2 = os.path.join(path_outputs1, "mmh")
-        if not os.path.exists(path_outputs2):
-            os.makedirs(path_outputs2)
-        pysteps.visualization.animations.animate(R, savefig=True, path_outputs=path_outputs2)
-    else:
-        pysteps.visualization.animations.animate(R, savefig=False)
-
-# plt.imshow(R[5], cmap="Blues")
-
 ##############################################################################
 # TIME SERIES OF AREAL MEAN R, STD, AND WAR IN UNIT OF MM/H
 
@@ -169,31 +121,16 @@ if animation_mmh == 1:
 areal_rainfall_mmh = np.zeros(len(fns[1]))
 for i in range (0, len(fns[1])):
     areal_rainfall_mmh[i] = np.nanmean(R[i])
-plt.figure()
-plt.plot(areal_rainfall_mmh)
-plt.title("Areal mean rainfall (mm/h)")
-if plots_mmh == 1:
-    plt.savefig(os.path.join(out_dir, "ts_meanR_mmh.png"))
 
 #Wetted area ratio in mm/h
 war_mmh = np.zeros(len(fns[1]))
 for i in range (0, len(fns[1])):
     war_mmh[i] = (np.count_nonzero(R[i][R[i] > 0.1])) / np.count_nonzero(~np.isnan(R[i]))
-plt.figure()
-plt.plot(war_mmh)
-plt.title("Wetted area ratio (mm/h)")
-if plots_mmh == 1:
-    plt.savefig(os.path.join(out_dir, "ts_war_mmh.png"))
 
 #Standard deviation in mm/h
 std_mmh = np.zeros(len(fns[1]))
 for i in range (0, len(fns[1])):
     std_mmh[i] = np.nanstd(R[i])
-plt.figure()
-plt.plot(std_mmh)
-plt.title("Standard deviation (mm/h)")
-if plots_mmh == 1:
-    plt.savefig(os.path.join(out_dir, "ts_std_mmh.png"))
 
 ##############################################################################
 # DATA TRANSFORMATION INTO UNIT OF DBZ
@@ -212,23 +149,11 @@ b_R=1.53
 
 R, metadata = pysteps.utils.conversion.to_reflectivity(R, metadata, zr_a=a_R, zr_b=b_R)
 
-#Plot event as a animation
-if animation_dbz == 1:
-    plt.figure()
-    if save_animation_dbz == 1:
-        path_outputs3 = os.path.join(out_dir, "input_pngs")
-        if not os.path.exists(path_outputs3):
-            os.makedirs(path_outputs3)
-        path_outputs4 = os.path.join(path_outputs3, "dbz")
-        if not os.path.exists(path_outputs4):
-            os.makedirs(path_outputs4)
-        pysteps.visualization.animations.animate(R, savefig=True, path_outputs=path_outputs4)
-    else:
-        pysteps.visualization.animations.animate(R, savefig=False)
+##############################################################################
+#VISUALIZE AND SAVE INPUT EVENT AS AN ANIMATION
 
 if animation_blues == 1:
-    #ani = animate_interactive(R_sim,grid_on,colorbar_on, predefined_value_range,cmap) #cmap=None is pysteps colorscale
-    ani = pysteps.visualization.animations.animate_interactive(R,False,True,False,"Blues")
+    ani = pysteps.visualization.animations.animate_interactive(R, grid_on=False, colorbar_on=True, predefined_value_range=False, cmap="Blues") #cmap=None is pysteps colorscale
 
 if save_animation_blues == 1:
     #Create datetime object
@@ -241,12 +166,12 @@ if save_animation_blues == 1:
     #Save pngs
     for im in range(0,len(R)):
         plt.figure()
-        testi_im = plt.imshow(R[im], cmap="Blues", vmin=0, vmax=round(np.nanmax(R)+0.5))
-        plt.colorbar(testi_im, spacing="uniform", extend="max", shrink=0.8, cax=None, label="Precipitation intensity [dBZ]")
+        test_im = plt.imshow(R[im], cmap="Blues", vmin=0, vmax=round(np.nanmax(R)+0.5))
+        plt.colorbar(test_im, spacing="uniform", extend="max", shrink=0.8, cax=None, label="Precipitation intensity [dBZ]")
         plt.title("Time: %s"% str(title_time[im])[11:16])
         plt.savefig(os.path.join(out_dir2, f"osapol_dbz_{im}.png"))
         plt.close()
-
+        
 ##############################################################################
 # TIME SERIES OF AREAL MEAN R, STD, AND WAR IN UNIT OF DBZ
 
@@ -279,7 +204,7 @@ plt.plot(std_ts)
 plt.title("Standard deviation (dBZ)")
 if plots_dbz == 1:
     plt.savefig(os.path.join(out_dir, "ts_std_dbz.png"))
-
+    
 ##############################################################################
 # CALCULATE ADVECTION TIME SERIES
 
@@ -287,39 +212,27 @@ if plots_dbz == 1:
 oflow_method = "LK" #Lukas-Kanade
 oflow_advection = pysteps.motion.get_method(oflow_method) 
 
-#Variables for magnitude and direction of advection
+#x- and y-components of advection. as well as calulated advection magnitude and direction
 Vx = np.zeros(len(R)-1)
 Vy = np.zeros(len(R)-1)
 Vxy = np.zeros(len(R)-1)
 Vdir_rad = np.zeros(len(R)-1)
 
-#Loop to calculate average x- and y-components of the advection, as well as magnitude and direction in xy-dir
 V_of = []
 for i in range(0, len(R)-1):
     V_of.append(oflow_advection(R[i:i+2, :, :]))
-    #Vtemp[0,:,:] contains the x-components of the motion vectors.
-    #Vtemp[1,:,:] contains the y-components of the motion vectors.
-    #The velocities are in units of pixels/timestep.
+    #V_[0,:,:] contains the x-components of the motion vectors.
+    #V_[1,:,:] contains the y-components of the motion vectors.
     Vx[i] = np.nanmean(V_of[i][0]) #field mean in x-direction
     Vy[i] = np.nanmean(V_of[i][1]) #field mean in y-direction
     Vxy[i] = np.sqrt(Vx[i]**2 + Vy[i]**2) #total magnitude of advection
-    Vdir_rad[i] = np.arctan(Vy[i]/Vx[i]) #direction of advection in xy-dir in radians
     #The inverse of tan, so that if y = tan(x) then x = arctan(y).
-    #Range of values of the function: −pi/2 < y < pi/2 (-1.5707963267948966 < y < 1.5707963267948966) -> np.pi gives value of pi
-Vdir_deg = (Vdir_rad/(2*np.pi))*360 #direction of advection in xy-dir in degrees
+    #Range of values of the function: −pi/2 < y < pi/2 (-1.5707963267948966 < y < 1.5707963267948966)
+    Vdir_rad[i] = np.arctan(Vy[i]/Vx[i]) #direction of advection in radians
 
-#Change of direction
-Vdir_change = np.zeros(len(Vdir_deg))
-for i in range(1, len(Vdir_deg)):
-    Vdir_change[i] = Vdir_deg[i]-Vdir_deg[i-1]
-
-for i in range(1, len(Vdir_change)):
-    if Vdir_change[i] < -180:
-        Vdir_change[i] = Vdir_change[i] + 360
-    elif Vdir_change[i] > 180:
-        Vdir_change[i] = Vdir_change[i] - 360
-    
-#True direction in degs
+Vdir_deg = (Vdir_rad/(2*np.pi))*360 #direction of advection in degrees
+   
+#True direction in degrees
 Vdir_deg_adj = (Vdir_rad/(2*np.pi))*360
 for j in range(0, len(R)-1):
     if Vx[j]<0 and Vy[j]>0:
@@ -331,24 +244,18 @@ for j in range(0, len(R)-1):
     else:
         Vdir_deg_adj[j] = Vdir_deg_adj[j]
 
-#True change of direction  
-Vdir_change2 = np.zeros(len(Vdir_deg_adj))
-for i in range(1, len(Vdir_deg_adj)):
-    Vdir_change2[i] = Vdir_deg_adj[i]-Vdir_deg_adj[i-1]
-
-for i in range(1, len(Vdir_change2)):
-    if Vdir_change2[i] < -180:
-        Vdir_change2[i] = Vdir_change2[i] + 360
-    elif Vdir_change2[i] > 180:
-        Vdir_change2[i] = Vdir_change2[i] - 360
-        
 ##############################################################################
 # GENERAL BROKEN LINE PARAMETERS
 
 q = 0.8
-noBLs = 1
+noBLs = 1 #number of final broken line time series 
+
+#Parameters to set limits/requirements for variance and mean of final sum broken line
 var_tol = 0.3
 mar_tol = 0.7
+# acceptable minimum of variance: var_min = sigma2_z - (var_tol * sigma2_z)  
+# acceptable maximum of variance: var_max = sigma2_z + (var_tol * sigma2_z)
+# acceptable maximum of mean areal rainfall: mar_max = mar_tol * mu_z  
 
 tStep = float(5) #timestep [min]
 tSerieLength = (len(R) - 1) * tStep #timeseries length [min]
@@ -367,8 +274,6 @@ event_cors = sm.tsa.acf(areal_rainfall_ts, nlags=(len(areal_rainfall_ts) - 1))
 plt.figure()
 plt.plot(event_cors)
 plt.title("Autocorrelations: mean R")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "auto_cors_meanR.png"))
 
 #Timesteps for no autocorrelation
 no_autocor = np.where(event_cors < 0) #first this was the condition: < 1/euler
@@ -391,8 +296,6 @@ plt.figure()
 plt.plot(np.log(freqs_sliced), np.log(power_spectrum_sliced))
 plt.plot(np.log(freqs_sliced[0:len(freqs_sliced)]), y_values)
 plt.title("Freqs vs. power spectrum -fit: mean R")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "freq_vs_ps_meanR.png"))
 
 H = (-slope-1)/2
 
@@ -408,8 +311,6 @@ event_cors_Vxy = sm.tsa.acf(Vxy, nlags=(len(Vxy) - 1))
 plt.figure()
 plt.plot(event_cors_Vxy)
 plt.title("Autocorrelations: advection mag")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "auto_cors_adv-mag.png"))
 
 #Timesteps for no autocorrelation
 no_autocor_Vxy = np.where(event_cors_Vxy < 0) # < 1/euler
@@ -432,8 +333,6 @@ plt.figure()
 plt.plot(np.log(freqs_Vxy_sliced), np.log(power_spectrum_Vxy_sliced))
 plt.plot(np.log(freqs_Vxy_sliced[0:len(freqs_Vxy_sliced)]), y_values_Vxy)
 plt.title("Freqs vs. power spectrum -fit: advection mag")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "freq_vs_ps_adv-mag.png"))
 
 H_Vxy = (-slope_Vxy-1)/2
 
@@ -449,8 +348,6 @@ event_cors_Vdir_deg_adj = sm.tsa.acf(Vdir_deg_adj, nlags=(len(Vdir_deg_adj) - 1)
 plt.figure()
 plt.plot(event_cors_Vdir_deg_adj)
 plt.title("Autocorrelations: advection dir")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "auto_cors_adv-dir.png"))
 
 #Timesteps for no autocorrelation
 no_autocor_Vdir_deg_adj = np.where(event_cors_Vdir_deg_adj < 0) # < 1/euler
@@ -473,85 +370,17 @@ plt.figure()
 plt.plot(np.log(freqs_Vdir_deg_adj_sliced), np.log(power_spectrum_Vdir_deg_adj_sliced))
 plt.plot(np.log(freqs_Vdir_deg_adj_sliced[0:len(freqs_Vdir_deg_adj_sliced)]), y_values_Vdir_deg_adj)
 plt.title("Freqs vs. power spectrum -fit: advection dir")
-if plot_bl_pars == 1:
-    plt.savefig(os.path.join(out_dir, "freq_vs_ps_adv-dir.png"))
 
 H_Vdir_deg_adj = (-slope_Vdir_deg_adj-1)/2
 
-
 ##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-mu_z_Vx = float(np.mean(Vx)) #mean of input time series
-sigma2_z_Vx = float(np.var(Vx)) #variance of input time series
+#TODO: OPTIMIZE A_ZERO FOR AREAL MEAN RAINFALL
 
-#Correlations and a_zero of time series
-event_cors_Vx = sm.tsa.acf(Vx, nlags=(len(Vx) - 1))
-plt.figure()
-plt.plot(event_cors_Vx)
-plt.title("Autocorrelations: advection x")
-#Timesteps for no autocorrelation
-no_autocor_Vx = np.where(event_cors_Vx < 0) # < 1/euler
-a_zero_Vx = (no_autocor_Vx[0][0]-1)*tStep #time steps in which correlation values are > 1/e = 0.36787968862663156
 
-#Power spectrum, beta, and H of time series
-power_spectrum_Vx = np.abs(np.fft.fft(Vx))**2 #absolute value of the complex components of fourier transform of data
-freqs_Vx = np.fft.fftfreq(Vx.size, tStep) #frequencies
 
-freqs_Vx_sliced = freqs_Vx[1:]
-freqs_Vx_sliced = freqs_Vx_sliced[freqs_Vx_sliced>0]
-power_spectrum_Vx_sliced = power_spectrum_Vx[1:]
-power_spectrum_Vx_sliced = power_spectrum_Vx_sliced[0:len(freqs_Vx_sliced)]
 
-#Calculate power spectrum exponent beta and H from beta using linear fitting of the data
-slope_Vx, intercept_Vx, r_value_Vx, p_value_Vx, std_err_Vx = sp.linregress(np.log(freqs_Vx_sliced[0:len(freqs_Vx_sliced)]), np.log(power_spectrum_Vx_sliced[0:len(freqs_Vx_sliced)]))
-y_values_Vx = slope_Vx*np.log(freqs_Vx_sliced[0:len(freqs_Vx_sliced)])+intercept_Vx
-H_Vx = (-slope_Vx-1)/2
 
-plt.figure()
-plt.plot(np.log(freqs_Vx_sliced), np.log(power_spectrum_Vx_sliced))
-plt.plot(np.log(freqs_Vx_sliced[0:len(freqs_Vx_sliced)]), y_values_Vx)
-plt.title("Freqs vs. power spectrum -fit: advection x")
 
-####################################
-
-mu_z_Vy = float(np.mean(Vy)) #mean of input time series
-sigma2_z_Vy = float(np.var(Vy)) #variance of input time series
-
-#Correlations and a_zero of time series
-event_cors_Vy = sm.tsa.acf(Vy, nlags=(len(Vy) - 1))
-plt.figure()
-plt.plot(event_cors_Vy)
-plt.title("Autocorrelations: advection y")
-#Timesteps for no autocorrelation
-no_autocor_Vy = np.where(event_cors_Vy < 0) # < 1/euler
-a_zero_Vy = (no_autocor_Vy[0][0]-1)*tStep #time steps in which correlation values are > 1/e = 0.36787968862663156
-
-#Power spectrum, beta, and H of time series
-power_spectrum_Vy = np.abs(np.fft.fft(Vy))**2 #absolute value of the complex components of fourier transform of data
-freqs_Vy = np.fft.fftfreq(Vy.size, tStep) #frequencies
-
-freqs_Vy_sliced = freqs_Vy[1:]
-freqs_Vy_sliced = freqs_Vy_sliced[freqs_Vy_sliced>0]
-power_spectrum_Vy_sliced = power_spectrum_Vy[1:]
-power_spectrum_Vy_sliced = power_spectrum_Vy_sliced[0:len(freqs_Vy_sliced)]
-
-#Calculate power spectrum exponent beta and H from beta using linear fitting of the data
-slope_Vy, intercept_Vy, r_value_Vy, p_value_Vy, std_err_Vy = sp.linregress(np.log(freqs_Vy_sliced[0:len(freqs_Vy_sliced)]), np.log(power_spectrum_Vy_sliced[0:len(freqs_Vy_sliced)]))
-y_values_Vy = slope_Vy*np.log(freqs_Vy_sliced[0:len(freqs_Vy_sliced)])+intercept_Vy
-H_Vy = (-slope_Vy-1)/2
-
-plt.figure()
-plt.plot(np.log(freqs_Vy_sliced), np.log(power_spectrum_Vy_sliced))
-plt.plot(np.log(freqs_Vy_sliced[0:len(freqs_Vy_sliced)]), y_values_Vy)
-plt.title("Freqs vs. power spectrum -fit: advection x")
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
 
 ##############################################################################
 # ESTIMATE FFT-PARAMETERS
@@ -568,11 +397,10 @@ beta1s = np.zeros(len(R2))
 beta2s = np.zeros(len(R2))
 w0s = np.zeros(len(R2))
 
-scale_break = 18  # scale break in km
+scale_break = 18  # constant scale break [km]
 scale_break_wn = np.log(max(R2.shape[1],R2.shape[2])/scale_break)
 for i in range(0, len(R2)):
     Fp = pysteps.noise.fftgenerators.initialize_param_2d_fft_filter(R2[i], scale_break=scale_break_wn)
-    # Fp = pysteps.noise.fftgenerators.initialize_param_2d_fft_filter(R2[i])
 
     #Compute the observed and fitted 1D PSD
     L = np.max(Fp["input_shape"])
@@ -584,35 +412,10 @@ for i in range(0, len(R2)):
     f = np.exp(Fp["model"](np.log(wn), *Fp["pars"]))
 
     # Extract the scaling break in km, beta1 and beta2
-    w0s[i] = 18
-    # w0s[i] = L / np.exp(Fp["pars"][0])
-    # 18.812969387097972
-    # 18.758204339640127
-    # 17.949153140866713
-    beta1s[i] = Fp["pars"][1] #this was 1, had to fix
-    beta2s[i] = Fp["pars"][2] #this was 2, had to fix
+    w0s[i] = 18 #[km]
+    beta1s[i] = Fp["pars"][1]
+    beta2s[i] = Fp["pars"][2]
     
-##############################################################################  
-# PLOT EXAMPLE OF 2D FOURIER SPRECTRUM
-
-if plot_2dfft == 1:
-    # Compute the Fourier transform of the input field
-    F80 = abs(np.fft.fftshift(np.fft.fft2(R2[80])))
-    
-    # Plot the power spectrum
-    M, N = F80.shape
-    fig, ax = plt.subplots()
-    im = ax.imshow(
-        np.log(F80**2), vmin=4, vmax=24, cmap=cm.jet, extent=(-N / 2, N / 2, -M / 2, M / 2)
-    )
-    cb = fig.colorbar(im)
-    ax.set_xlabel("Wavenumber $k_x$")
-    ax.set_ylabel("Wavenumber $k_y$")
-    ax.set_title("Log-power spectrum of R")
-    plt.show()
-    if save_2dfft == 1:
-        plt.savefig(os.path.join(out_dir, "example_2dfft.png"))
-
 ##############################################################################
 # CREATE GAUSSIAN BANDPASS FILTER
 
@@ -626,34 +429,9 @@ bp_filter = pysteps.cascade.bandpass_filters.filter_gaussian(R2[0].shape, n_casc
 #https://gmd.copernicus.org/articles/12/4185/2019/, figure1
 L_k = np.zeros([n_cascade_levels, 1])
 L_k[0] = 264
+#TODO: change above to 256
 for i in range(1, len(L_k)):
     L_k[i] = (L_k[0]/2)/(bp_filter["central_wavenumbers"][i])
-
-##############################################################################
-# PLOT BANDPASS FILTER WEIGHTS
-
-if plot_bpf_weights == 1:
-    # Plot the bandpass filter weights
-    L = np.max(Fp["input_shape"])
-    fig, ax = plt.subplots()
-    for k in range(n_cascade_levels):
-        ax.semilogx(
-            np.linspace(0, L / 2, len(bp_filter["weights_1d"][k, :])),
-            bp_filter["weights_1d"][k, :],
-            "k-",
-            base=pow(0.5 * L / 3, 1.0 / (n_cascade_levels - 2)),
-        )
-    ax.set_xlim(1, L / 2)
-    ax.set_ylim(0, 1)
-    xt = np.hstack([[1.0], bp_filter["central_wavenumbers"][1:]])
-    ax.set_xticks(xt)
-    ax.set_xticklabels(["%.2f" % cf for cf in bp_filter["central_wavenumbers"]])
-    ax.set_xlabel("Radial wavenumber $|\mathbf{k}|$")
-    ax.set_ylabel("Normalized weight")
-    ax.set_title("Bandpass filter weights")
-    plt.show()
-    if save_bpf_weights == 1:
-        plt.savefig(os.path.join(out_dir, "example_bpf_weights.png"))
 
 ##############################################################################
 # ESTIMATE AR(2)-MODEL PARAMETERS
@@ -719,46 +497,7 @@ for i in range(2,len(R2)-1):
     phi_all[0:n_cascade_levels, i] = phi[:, 0]
     phi_all[n_cascade_levels:(2*n_cascade_levels), i] = phi[:, 1]
     phi_all[(2*n_cascade_levels):len(phi_all), i] = phi[:, 2]
-
-##############################################################################
-# PLOT EXAMPLE OF CASCADE DECOMPOSITION
-
-if plot_decomp_example == 1:
-    decomp = pysteps.cascade.decomposition.decomposition_fft(R2[80], bp_filter, compute_stats=True)
-    # Plot the normalized cascade levels
-    for i in range(n_cascade_levels):
-        mu = decomp["means"][i]
-        sigma = decomp["stds"][i]
-        decomp["cascade_levels"][i] = (decomp["cascade_levels"][i] - mu) / sigma
     
-    fig, ax = plt.subplots(nrows=2, ncols=4)
-    
-    ax[0, 0].imshow(R2[80], cmap=cm.RdBu_r, vmin=-5, vmax=5)
-    ax[0, 1].imshow(decomp["cascade_levels"][0], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    ax[0, 2].imshow(decomp["cascade_levels"][1], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    ax[0, 3].imshow(decomp["cascade_levels"][2], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    ax[1, 0].imshow(decomp["cascade_levels"][3], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    ax[1, 1].imshow(decomp["cascade_levels"][4], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    ax[1, 2].imshow(decomp["cascade_levels"][5], cmap=cm.RdBu_r, vmin=-3, vmax=3)
-    
-    ax[0, 0].set_title("Observed")
-    ax[0, 1].set_title("Level 1")
-    ax[0, 2].set_title("Level 2")
-    ax[0, 3].set_title("Level 3")
-    ax[1, 0].set_title("Level 4")
-    ax[1, 1].set_title("Level 5")
-    ax[1, 2].set_title("Level 6")
-    ax[1, 3].set_title("Level 7")
-    
-    for i in range(2):
-        for j in range(4):
-            ax[i, j].set_xticks([])
-            ax[i, j].set_yticks([])
-    plt.tight_layout()
-    plt.show()
-    if save_decomp_example == 1:
-        plt.savefig(os.path.join(out_dir, "example_decomp.png"))
-
 ##############################################################################
 # CALCULATE GAMMA1, GAMMA2, AND TAU_K
 
@@ -776,7 +515,7 @@ for i in range(len(gamma2_mean), len(gamma_all)):
 tau_k = np.zeros([n_cascade_levels, 1])
 for i in range(0, len(tau_k)):
     tau_k[i] = -timestep/np.log(gamma1_mean[i])
-
+    
 ##############################################################################
 # ESTIMATING AR-PARAMETERS: tlen_a, tlen_b, and tlen_c
 
@@ -788,9 +527,7 @@ plt.figure()
 plt.plot(np.log(L_k[0:n_cascade_levels,0]), np.log(tau_k[0:n_cascade_levels,0]), marker='s')
 plt.plot(np.log(L_k[1:n_cascade_levels]), y_values_tlen)
 plt.title("L_k vs. Tau_k -fit - AR-pars: tlen_a and tlen_b")
-if plot_estimated_ar_pars == 1:
-    plt.savefig(os.path.join(out_dir, "ar-par_Lk_vs_Tauk.png"))
-
+#estimated parameters
 tlen_b = slope_tlen
 tlen_a = np.exp(intercept_tlen)
 print(slope_tlen) #tlen_b
@@ -804,9 +541,7 @@ plt.figure()
 plt.plot(np.log(gamma1_mean[0:n_cascade_levels,0]), np.log(gamma2_mean[0:n_cascade_levels,0]), marker='s')
 plt.plot(np.log(gamma1_mean[0:n_cascade_levels-1]), y_values_tlen_c)
 plt.title("Gamma1 vs. Gamma2 -fit - AR-pars: tlen_c")
-if plot_estimated_ar_pars == 1:
-    plt.savefig(os.path.join(out_dir, "ar-par_Gamma1_vs_Gamma2.png"))
-
+#estimated parameter
 tlen_c = slope_tlen_c
 print(slope_tlen_c) #tlen_c
 
@@ -821,8 +556,6 @@ polyline = np.linspace(min(areal_rainfall_ts), max(areal_rainfall_ts), 400)
 plt.scatter(areal_rainfall_ts, std_ts)
 plt.plot(polyline, std_fit(polyline))
 plt.title("mean vs. std")
-if plot_fit_vs_mean == 1:
-    plt.savefig(os.path.join(out_dir, "fit_mean_vs_std.png"))
 print(std_fit)
 
 #polynomial fit with degree = 2
@@ -833,8 +566,6 @@ polyline = np.linspace(min(areal_rainfall_ts), max(areal_rainfall_ts), 400)
 plt.scatter(areal_rainfall_ts, war_ts)
 plt.plot(polyline, war_fit(polyline))
 plt.title("mean vs. war")
-if plot_fit_vs_mean == 1:
-    plt.savefig(os.path.join(out_dir, "fit_mean_vs_war.png"))
 print(war_fit)
 
 #polynomial fit with degree = 2
@@ -845,8 +576,6 @@ polyline = np.linspace(min(areal_rainfall_ts), max(areal_rainfall_ts), 400)
 plt.scatter(areal_rainfall_ts, beta1s)
 plt.plot(polyline, beta1_fit(polyline))
 plt.title("mean vs. beta1")
-if plot_fit_vs_mean == 1:
-    plt.savefig(os.path.join(out_dir, "fit_mean_vs_beta1.png"))
 print(beta1_fit)
 
 #polynomial fit with degree = 2
@@ -857,10 +586,9 @@ polyline = np.linspace(min(areal_rainfall_ts), max(areal_rainfall_ts), 400)
 plt.scatter(areal_rainfall_ts, beta2s)
 plt.plot(polyline, beta2_fit(polyline))
 plt.title("mean vs. beta2")
-if plot_fit_vs_mean == 1:
-    plt.savefig(os.path.join(out_dir, "fit_mean_vs_beta2.png"))
 print(beta2_fit)
 
+#Fitted scale break is not used in the simulatoions
 #polynomial fit with degree = 2
 w0_fit = np.poly1d(np.polyfit(areal_rainfall_ts, w0s, 2))
 #add fitted polynomial line to scatterplot
@@ -869,8 +597,6 @@ polyline = np.linspace(min(areal_rainfall_ts), max(areal_rainfall_ts), 400)
 plt.scatter(areal_rainfall_ts, w0s)
 plt.plot(polyline, w0_fit(polyline))
 plt.title("mean vs. w0")
-if plot_fit_vs_mean == 1:
-    plt.savefig(os.path.join(out_dir, "fit_mean_vs_w0.png"))
 print(w0_fit)
 
 ##############################################################################
@@ -918,10 +644,3 @@ if csv_sim_pars == 1:
                                                 'mu_z', 'sigma2_z', 'h_val_z', 'a_zero_z', 'mu_vmag', 'sigma2_vmag', 'h_val_vmag', 'a_zero_vmag', 'mu_vdir', 'sigma2_vdir', 'h_val_vdir', 'a_zero_vdir', 
                                                 'q', 'no_bls', 'var_tol', 'mar_tol'])
     pd.DataFrame(all_params).to_csv(os.path.join(out_dir, "all_params.csv"))
-
-##############################################################################
-# TIME USED FOR PARAMETER ESTIMATION: End timer
-
-run_end_0 = time.perf_counter()
-run_dur_0 = run_end_0 - run_start_0
-print(run_dur_0 / 60)
